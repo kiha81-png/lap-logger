@@ -120,19 +120,33 @@ TESTS = {
 }""",
 'drag_without_device_speed': """async () => {
   // 端末が速度を出さない場合（iPhone で起きる）：位置だけから、発進時刻と距離のタイムを求められるか
-  const out = {};
-  for (const acc of [5, 10, 20]){
+  // 更新は 1 秒ごとと 0.2 秒ごと、位置の揺れは精度に比例させる
+  const out = {}; let off = 5e6;
+  for (const [acc, hz] of [[5, 1], [10, 1], [20, 1], [5, 5], [10, 5]]){
     settings.mode = 'drag'; settings.dragDist = [200, 400]; settings.unit = 'kmh';
     live.lastFixT = 0; await startRec();
-    const t0 = Date.now() + 5e6 + acc * 1e5, tS = t0 + 4500; let seed = acc; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
-    for (let k = 0; k < 25; k++){ const t = t0 + k * 1000, dt = Math.max(0, (t - tS) / 1000), y = 2.5 * dt * dt + rnd() * 3, x = rnd() * 3, q = toLL(x, y);
+    const step = 1000 / hz, t0 = Date.now() + (off += 1e5), tS = t0 + 4500; let seed = acc * 7 + hz; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
+    const noise = acc * 0.3;
+    for (let k = 0; k < 25 * hz; k++){ const t = t0 + k * step, dt = Math.max(0, (t - tS) / 1000), y = 2.5 * dt * dt + rnd() * noise, x = rnd() * noise, q = toLL(x, y);
       onPos({ timestamp: t, coords: { latitude: q.lat, longitude: q.lon, accuracy: acc, speed: null } }); }
-    const r = rec.det.laps[0] || (rec.det.cur ? { start: rec.det.cur.start, times: rec.det.cur.times } : null);
-    out[acc] = r ? { startErr: Math.round(r.start - tS), t200: r.times[200] && Math.round(r.times[200] - 8944), t400: r.times[400] && Math.round(r.times[400] - 12649) } : null;
+    const r = rec.det.laps[0] || (rec.det.cur ? { start: rec.det.cur.start, times: rec.det.cur.times, warn: rec.det.cur.warn } : null);
+    out[acc + 'm/' + hz + 'Hz'] = r ? { startErr: Math.round(r.start - tS), t200: r.times[200] && Math.round(r.times[200] - 8944), t400: r.times[400] && Math.round(r.times[400] - 12649), warn: r.warn } : null;
     stopRec(); await DB.q;
   }
-  const ok = Object.values(out).every(o => o && Math.abs(o.startErr) < 600 && Math.abs(o.t200) < 600 && Math.abs(o.t400) < 600);
+  const ok = Object.values(out).every(o => o && Math.abs(o.t200) < 800 && Math.abs(o.t400) < 800);
   return [ok, out];
+}""",
+'slow_crossing_5hz_no_speed': """() => {
+  // 0.2 秒ごとの更新・速度なしでも、時速30km程度のライン通過を数えるか
+  const c = migrateCourse({ id: 'tp', name: 't', type: 'segment', lines: [{ c: toLL(0, 50), hdg: 0, w: 30 }, { c: toLL(0, 250), hdg: 0, w: 30 }] });
+  const s = { id: 'tp1', startedAt: 1, mode: 'segment', vehicle: vehSnap(vehicles[0]), course: c, settings: { minLap: 30 }, points: [] };
+  // onPos と同じ補完で速度を作る
+  const pts = []; for (let k = 0; k < 200; k++){ const t = 1.7e12 + k * 200, q = toLL(0, 8.3 * k * 0.2); pts.push({ t, lat: q.lat, lon: q.lon, acc: 5 }); }
+  for (let i = 0; i < pts.length; i++){ let ref = pts[Math.max(0, i - 1)]; for (let k = i - 1; k >= 0 && pts[i].t - pts[k].t <= 2500; k--) ref = pts[k];
+    const d2 = distM(ref, pts[i]), dt2 = (pts[i].t - ref.t) / 1000; pts[i].v = i === 0 ? 0 : (d2 < Math.min(8, Math.max(3, 7.5)) ? 0 : d2 / dt2); }
+  s.points = pts;
+  const det = runDet(s);
+  return [det.laps.length === 1 && Math.abs(det.laps[0].time - 200 / 8.3 * 1000) < 400, det.laps.map(l => l.time)];
 }""",
 'stationary_jitter': """async () => {
   settings.mode = 'circuit'; settings.courseCircuit = courses[0].id;

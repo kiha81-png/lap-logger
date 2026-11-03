@@ -576,7 +576,7 @@ function parseLatLon(text){
 }
 
 // ---------- 保存 ----------
-const APP_VERSION = '4.0.2';
+const APP_VERSION = '4.0.3';
 const SCHEMA = 2;
 // github.io では同じユーザーのページ同士が保存領域を共有するので、公開URL以外（テスト用など）は名前を分ける
 const NS = location.pathname.replace(/[^/]*$/, '') || '/';
@@ -908,18 +908,21 @@ class DragDetector {
     const r = this.rest, early = (this.stillPts || []).filter(q => q.t < p.t - 2500), base = early.length ? early : (this.stillPts || [r]);
     const A = { lat: base.reduce((a, q) => a + q.lat, 0) / base.length, lon: base.reduce((a, q) => a + q.lon, 0) / base.length };
     this.still = null;
-    if (p.t - r.t > 3000){ this.state = 'wait'; return ev; }
+    const waited = p.t - r.t;
+    if (waited > 5000){ this.state = 'wait'; return ev; } // 測位が途切れた
     // 発進地点からの距離 d は (t - t0)² に比例する。発進後の2点が取れていれば、速度の値を使わずに t0 を求める
     const d2 = distM(A, p), d1 = prev ? distM(A, prev) : 0;
-    let t0;
+    let t0, rough = false;
     if (prev && d1 > 2 && d2 > d1 * 1.2){
       const s1 = Math.sqrt(d1), s2 = Math.sqrt(d2);
       t0 = Math.min(prev.t, (prev.t * s2 - p.t * s1) / (s2 - s1));
     } else if (p.sp) t0 = Math.min(p.t, p.t - 2 * d2 / p.v * 1000); // 端末の速度があれば、それで逆算する
-    else return ev; // 位置だけでは近すぎて誤差が大きい。次の点を待つ
-    t0 = Math.max(p.t - 8000, t0);
+    else if (waited <= 3000) return ev; // 位置だけでは近すぎて誤差が大きい。次の点を待つ
+    else { t0 = r.t; rough = true; }    // 待っても求まらない：最後に止まっていた時刻を発進とし、目安の記録（⚠）にする
+    // 発進は、止まっていた点（平均に使った点）の最後より前にはならない
+    t0 = Math.max(base[base.length - 1].t, p.t - 8000, t0);
     this.cur = { n: this.laps.length + 1, start: t0, sll: { lat: A.lat, lon: A.lon }, times: {}, vAt: {}, spd: {}, maxV: 0, dist: 0,
-      last: { t: t0, v: 0, lat: A.lat, lon: A.lon }, warn: false, fromRest: true };
+      last: { t: t0, v: 0, lat: A.lat, lon: A.lon }, warn: rough, fromRest: true };
     this.state = 'run';
     ev.push({ type: 'start', t: t0 });
     this._run(p, ev);
@@ -928,7 +931,7 @@ class DragDetector {
   _run(p, ev){
     const c = this.cur, a = c.last, dt = p.t - a.t;
     if (dt <= 0) return;
-    if (dt > 3000) c.warn = true;
+    if (!c.fromRest && dt > 3000) c.warn = true;
     const seg = distM(a, p), d0 = c.dist, d1 = d0 + seg;
     for (const D of this.dists){
       if (c.times[D] != null || d1 < D) continue;
@@ -1318,7 +1321,9 @@ function onPos(pos){
     // 端末が速度を出せないときは、約2秒前の点からの移動で求める。6m 未満の動きは GPS の揺れとみなす
     if (sv != null){ p.v = sv; p.sp = 1; }
     else {
-      const ref = pts[Math.max(0, pts.length - 2)], d2 = distM(ref, p), dt2 = (t - ref.t) / 1000;
+      let ref = pts[pts.length - 1];
+      for (let k = pts.length - 1; k >= 0 && t - pts[k].t <= 2500; k--) ref = pts[k];
+      const d2 = distM(ref, p), dt2 = (t - ref.t) / 1000;
       p.v = d2 < Math.min(8, Math.max(3, 1.5 * c.accuracy)) ? 0 : d2 / dt2;
     }
   } else if (sv != null){ p.v = sv; p.sp = 1; }
@@ -1664,7 +1669,8 @@ function stopRec(){
   const unlock = rec.unlock; rec.unlock = null; rec.releasing.add(LOCKP + s.id);
   anaCache.delete(s.id);
   analyze(s);
-  DB.append(s).then(ok => { if (unlock) unlock(); setTimeout(() => rec.releasing.delete(LOCKP + s.id), 1000); if (ok) bcast({ type: 'rec-stop', id: s.id }); homeNote(); const el = $('#homeNote'); el.textContent = (ok ? tx('saved', 1) : tx('saveFail')) + (el.textContent ? ' ' + el.textContent : ''); el.className = 'note' + (ok ? '' : ' warnText'); });
+  const cleanup = () => { if (unlock) unlock(); setTimeout(() => rec.releasing.delete(LOCKP + s.id), 1000); };
+  DB.append(s).catch(() => false).then(ok => { cleanup(); if (ok) bcast({ type: 'rec-stop', id: s.id }); homeNote(); const el = $('#homeNote'); el.textContent = (ok ? tx('saved', 1) : tx('saveFail')) + (el.textContent ? ' ' + el.textContent : ''); el.className = 'note' + (ok ? '' : ' warnText'); });
   document.body.classList.remove('recording'); showUpdate();
   $('#home').hidden = false; $('#live').hidden = true; $('#wakeText').textContent = '';
   renderHome();
