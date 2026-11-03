@@ -22,7 +22,7 @@
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--text);overscroll-behavior:none;
   font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;-webkit-text-size-adjust:100%}
-body{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
+body{padding-top:env(safe-area-inset-top);padding-bottom:calc(70px + env(safe-area-inset-bottom))}
 button,input,select{font:inherit;color:inherit}
 button{background:var(--btn);border:0;border-radius:12px;padding:12px 14px;font-weight:600;cursor:pointer}
 button:active{filter:brightness(1.3)}
@@ -88,7 +88,10 @@ body.recording nav{display:none}
   position:sticky;bottom:calc(78px + env(safe-area-inset-bottom));box-shadow:0 6px 24px rgba(0,0,0,.6)}
 
 /* 計測中 */
-#live:not([hidden]){display:grid;grid-template-columns:1fr;gap:8px;grid-template-areas:"head" "time" "cells" "g" "btns" "note"}
+#live:not([hidden]){display:grid;grid-template-columns:1fr;gap:8px;grid-template-areas:"head" "time" "cells" "g" "btns" "note";
+  grid-template-rows:auto auto auto 1fr auto auto;min-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
+  min-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px)}
+.cells.nosec #cellSpeed{grid-column:1/-1}
 .runHead{grid-area:head;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
 .runTime{grid-area:time}.cells{grid-area:cells}.gbox{grid-area:g}.runBtns{grid-area:btns}#runNote{grid-area:note;margin:0}
 .big{font-size:clamp(56px,21vw,150px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.05;text-align:center;letter-spacing:-.02em}
@@ -101,7 +104,7 @@ body.recording nav{display:none}
 .val{font-size:clamp(30px,10vw,64px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;white-space:nowrap}
 .diff{font-size:clamp(20px,6vw,36px);font-weight:700;font-variant-numeric:tabular-nums;min-height:1.2em;white-space:nowrap}
 .gbox{display:flex;align-items:center;justify-content:center;gap:14px}
-#gCanvas{width:min(62vw,260px);background:none;border-radius:50%}
+#gCanvas{width:min(62vw,300px,34vh);background:none;border-radius:50%}
 .gvals{font-size:15px;color:var(--sub);display:flex;flex-direction:column;gap:6px}
 .gvals b{display:block;color:var(--text);font-size:26px;font-variant-numeric:tabular-nums}
 .runBtns button{width:100%;padding:22px;font-size:22px;border-radius:16px}
@@ -187,7 +190,7 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
   .mcard{display:grid;grid-template-columns:1.2fr 1fr;grid-template-rows:auto 1fr;gap:8px 16px;align-items:start}
   .mcard .outline{grid-row:1/3;grid-column:1;height:clamp(140px,52vh,320px)}
   #live:not([hidden]){grid-template-columns:1fr auto;gap:6px 16px;align-items:start;
-    grid-template-areas:"head head" "time g" "cells g" "cells btns" "note note"}
+    grid-template-areas:"head head" "time g" "cells g" "cells btns" "note note";grid-template-rows:auto auto 1fr auto auto}
   .big{font-size:clamp(40px,20vh,130px)}
   .lapno{font-size:15px}
   .dragList{font-size:16px}
@@ -240,7 +243,7 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
       <div class="cell" id="cellLast"><div class="lbl" id="lblLast"></div><div class="val" id="lastLap">--</div><div class="diff" id="lastDiff"></div></div>
       <div class="cell"><div class="lbl" data-i18n="pb"></div><div class="val" id="bestLap">--</div></div>
       <div class="cell" id="cellSec"><div class="lbl" id="secLbl"></div><div class="val" id="secTime">--</div><div class="diff" id="secDiff"></div></div>
-      <div class="cell"><div class="lbl" data-i18n="speedKmh"></div><div class="val" id="speed">--</div></div>
+      <div class="cell" id="cellSpeed"><div class="lbl" data-i18n="speedKmh"></div><div class="val" id="speed">--</div></div>
     </div>
     <div class="gbox">
       <canvas id="gCanvas"></canvas>
@@ -535,7 +538,8 @@ const I18N = {
 // ---------- 共通 ----------
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const R = 6371008.8, D2R = Math.PI / 180, G0 = 9.80665;
-const MIN_CROSS_V = 4;                 // m/s。これ未満のライン通過は数えない
+const MIN_CROSS_V = 4;
+const STILL_V = 0.8;                  // m/s。これ未満は停止とみなす                 // m/s。これ未満のライン通過は数えない
 const BRAKE_G = -0.15, ACCEL_G = 0.05; // ブレーキ・惰性の判定
 const MODES = ['circuit', 'drag', 'segment'];
 const DRAG_DISTS = [201.168, 402.336, 200, 400, 800, 1000, 1200, 1600];
@@ -572,7 +576,7 @@ function parseLatLon(text){
 }
 
 // ---------- 保存 ----------
-const APP_VERSION = '4.0.1';
+const APP_VERSION = '4.0.2';
 const SCHEMA = 2;
 // github.io では同じユーザーのページ同士が保存領域を共有するので、公開URL以外（テスト用など）は名前を分ける
 const NS = location.pathname.replace(/[^/]*$/, '') || '/';
@@ -885,23 +889,37 @@ class DragDetector {
     this.unit = opt && opt.unit === 'mph' ? 'mph' : 'km/h';
     this.spds = spdTargets(this.unit); this.k = this.unit === 'mph' ? MPH : KMH;
     this.state = 'wait'; this.still = null; this.rest = null; this.cur = null; this.laps = [];
+    this.stillPts = null; this.prev = null;
   }
   push(p){
-    const ev = [];
+    const ev = [], prev = this.prev;
+    this.prev = p;
     if (this.state === 'run'){ this._run(p, ev); return ev; }
     if (p.v < 1){
-      if (this.still == null) this.still = p.t;
+      if (this.still == null){ this.still = p.t; this.stillPts = []; }
+      this.stillPts.push(p); if (this.stillPts.length > 30) this.stillPts.shift();
       this.rest = p;
       if (this.state === 'wait' && p.t - this.still >= 2000){ this.state = 'armed'; ev.push({ type: 'armed' }); }
       return ev;
     }
+    if (this.state !== 'armed'){ this.still = null; return ev; }
+    if (p.v < 2 || !this.rest) return ev;
+    // 発進地点：止まっていた点の平均。動き出した直後（約2.5秒以内）の点は混ぜない
+    const r = this.rest, early = (this.stillPts || []).filter(q => q.t < p.t - 2500), base = early.length ? early : (this.stillPts || [r]);
+    const A = { lat: base.reduce((a, q) => a + q.lat, 0) / base.length, lon: base.reduce((a, q) => a + q.lon, 0) / base.length };
     this.still = null;
-    if (this.state !== 'armed' || p.v < 2 || !this.rest) return ev;
-    const r = this.rest, d = distM(r, p);
     if (p.t - r.t > 3000){ this.state = 'wait'; return ev; }
-    const t0 = Math.max(r.t, Math.min(p.t, p.t - 2 * d / p.v * 1000));
-    this.cur = { n: this.laps.length + 1, start: t0, sll: { lat: r.lat, lon: r.lon }, times: {}, vAt: {}, spd: {}, maxV: 0, dist: 0,
-      last: { t: t0, v: 0, lat: r.lat, lon: r.lon }, warn: false, fromRest: true };
+    // 発進地点からの距離 d は (t - t0)² に比例する。発進後の2点が取れていれば、速度の値を使わずに t0 を求める
+    const d2 = distM(A, p), d1 = prev ? distM(A, prev) : 0;
+    let t0;
+    if (prev && d1 > 2 && d2 > d1 * 1.2){
+      const s1 = Math.sqrt(d1), s2 = Math.sqrt(d2);
+      t0 = Math.min(prev.t, (prev.t * s2 - p.t * s1) / (s2 - s1));
+    } else if (p.sp) t0 = Math.min(p.t, p.t - 2 * d2 / p.v * 1000); // 端末の速度があれば、それで逆算する
+    else return ev; // 位置だけでは近すぎて誤差が大きい。次の点を待つ
+    t0 = Math.max(p.t - 8000, t0);
+    this.cur = { n: this.laps.length + 1, start: t0, sll: { lat: A.lat, lon: A.lon }, times: {}, vAt: {}, spd: {}, maxV: 0, dist: 0,
+      last: { t: t0, v: 0, lat: A.lat, lon: A.lon }, warn: false, fromRest: true };
     this.state = 'run';
     ev.push({ type: 'start', t: t0 });
     this._run(p, ev);
@@ -969,6 +987,7 @@ function dragBest(vehId){
 const clampG = g => Math.max(-2.5, Math.min(2.5, g));
 // GPSの連続3点から、真ん中の点の G（lat: 右が正、lon: 加速が正）
 function g3(a, b, c){
+  if (Math.max(a.v, b.v, c.v) < 2) return null; // ほぼ止まっているときは、GPSの揺れでGを出さない
   const dt = (c.t - a.t) / 1000;
   if (dt <= 0 || dt > 5) return null;
   const lon = (c.v - a.v) / dt / G0;
@@ -1296,8 +1315,14 @@ function onPos(pos){
   if (last){
     const dt = (t - last.t) / 1000, d = distM(last, p);
     if (d / dt > 120) return; // 432km/h 超の跳びは誤測位として捨てる
-    p.v = sv != null ? sv : d / dt;
-  } else if (sv != null) p.v = sv;
+    // 端末が速度を出せないときは、約2秒前の点からの移動で求める。6m 未満の動きは GPS の揺れとみなす
+    if (sv != null){ p.v = sv; p.sp = 1; }
+    else {
+      const ref = pts[Math.max(0, pts.length - 2)], d2 = distM(ref, p), dt2 = (t - ref.t) / 1000;
+      p.v = d2 < Math.min(8, Math.max(3, 1.5 * c.accuracy)) ? 0 : d2 / dt2;
+    }
+  } else if (sv != null){ p.v = sv; p.sp = 1; }
+  if (p.v < STILL_V) p.v = 0; // 時速約3km未満は止まっているとみなす
   pts.push(p);
   $('#speed').textContent = Math.round(p.v * spdK());
   if (rec.det){ const ev = rec.det.push(p); if (s.mode === 'drag') handleDrag(ev); else handleEvents(ev); }
@@ -1444,11 +1469,12 @@ $('#dragChips').addEventListener('click', e => {
 });
 
 // ---------- 計測 ----------
-const rec = { on: false, session: null, det: null, wake: null, wakeHeld: false, wakeReq: false, lastSave: 0, startedAt: 0 };
+const rec = { on: false, session: null, det: null, wake: null, wakeHeld: false, wakeReq: false, lastSave: 0, startedAt: 0, releasing: new Set() };
 const LOCKP = 'lap-logger-rec' + NS_SUFFIX + ':';
 function holdRecLock(id){
   if (!navigator.locks) return;
-  navigator.locks.request(LOCKP + id, () => new Promise(r => { rec.unlock = r; })).catch(() => {});
+  // 取れたときに、もう記録が終わっていたら、すぐ手放す
+  navigator.locks.request(LOCKP + id, () => new Promise(r => { if (rec.on && rec.session && rec.session.id === id) rec.unlock = r; else r(); })).catch(() => {});
 }
 async function heldRecLocks(){
   if (!navigator.locks) return null;
@@ -1568,7 +1594,7 @@ async function startRec(){
   if (rec.on || !ready) return;
   if (!consented()){ $('#consent').hidden = false; return; }
   const heldNow = await heldRecLocks();
-  if (heldNow && [...heldNow].some(n => n.startsWith(LOCKP))){ alert(tx('otherTab')); return; }
+  if (heldNow && [...heldNow].some(n => n.startsWith(LOCKP) && !rec.releasing.has(n))){ alert(tx('otherTab')); return; }
   if (!('geolocation' in navigator)){ alert(tx('noGeo')); return; }
   if (!window.isSecureContext){ alert(tx('needHttps')); return; }
   if (geo.denied){ // 設定で許可し直された場合に備えて、位置の取得をやり直す
@@ -1605,7 +1631,7 @@ async function startRec(){
   if (mode === 'drag'){
     live.dragMain = Math.max(...s.settings.dragDist); live.dragPb = dragBest(veh.id);
     $('#curLap').textContent = '0.00'; $('#lapNo').textContent = tx('dragStop');
-    $('#lblLast').textContent = `${tx('lastRun')}  ${distLabel(live.dragMain)}`; $('#secLbl').textContent = `0-${spdTargets()[0]}${U()}`; $('#cellSec').hidden = false;
+    $('#lblLast').textContent = `${tx('lastRun')}  ${distLabel(live.dragMain)}`; $('#secLbl').textContent = `0-${spdTargets()[0]}${U()}`; $('#cellSec').hidden = false; $('.cells').classList.remove('nosec');
     if (live.dragPb.times[live.dragMain] != null) $('#bestLap').textContent = fmtS(live.dragPb.times[live.dragMain]);
     $('#runLabel').textContent = `${s.vehicle.name}・${tx('modeDrag')} ${s.settings.dragDist.map(distLabel).join('/')}`;
   } else {
@@ -1616,6 +1642,7 @@ async function startRec(){
     $('#lapNo').textContent = !rec.det ? tx('recordOnly') : course.type === 'segment' ? tx('segWait') : tx('outLapWait');
     $('#lblLast').textContent = course.type === 'segment' ? tx('lastRun') : tx('lastLap'); $('#secLbl').textContent = tx('sector');
     $('#cellSec').hidden = nSecOf(course) < 2;
+    $('.cells').classList.toggle('nosec', $('#cellSec').hidden);
     $('#runLabel').textContent = `${s.vehicle.name}・${course.name}`;
   }
   document.body.classList.add('recording'); $('#updBar').hidden = true;
@@ -1634,10 +1661,10 @@ function stopRec(){
   if (rec.wake){ const w = rec.wake; rec.wake = null; rec.wakeHeld = false; w.release().catch(() => {}); }
   const s = rec.session;
   s.active = false; s.endedAt = Date.now();
-  const unlock = rec.unlock; rec.unlock = null;
+  const unlock = rec.unlock; rec.unlock = null; rec.releasing.add(LOCKP + s.id);
   anaCache.delete(s.id);
   analyze(s);
-  DB.append(s).then(ok => { if (unlock) unlock(); if (ok) bcast({ type: 'rec-stop', id: s.id }); homeNote(); const el = $('#homeNote'); el.textContent = (ok ? tx('saved', 1) : tx('saveFail')) + (el.textContent ? ' ' + el.textContent : ''); el.className = 'note' + (ok ? '' : ' warnText'); });
+  DB.append(s).then(ok => { if (unlock) unlock(); setTimeout(() => rec.releasing.delete(LOCKP + s.id), 1000); if (ok) bcast({ type: 'rec-stop', id: s.id }); homeNote(); const el = $('#homeNote'); el.textContent = (ok ? tx('saved', 1) : tx('saveFail')) + (el.textContent ? ' ' + el.textContent : ''); el.className = 'note' + (ok ? '' : ' warnText'); });
   document.body.classList.remove('recording'); showUpdate();
   $('#home').hidden = false; $('#live').hidden = true; $('#wakeText').textContent = '';
   renderHome();

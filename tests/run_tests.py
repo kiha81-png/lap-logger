@@ -27,6 +27,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 def start_server():
     httpd = socketserver.ThreadingTCPServer(('127.0.0.1', 0), functools.partial(Handler, directory=ROOT))
+    httpd.handle_error = lambda *a: None  # ブラウザが途中で接続を切ったときの表示を出さない
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd, f'http://127.0.0.1:{httpd.server_address[1]}{PREFIX}'
 
@@ -100,7 +101,7 @@ TESTS = {
 'other_tab_blocks_start': """async () => {
   let release; navigator.locks.request(LOCKP + 'other', () => new Promise(r => { release = r; }));
   await new Promise(r => setTimeout(r, 100));
-  settings.mode = 'drag'; await startRec();
+  settings.mode = 'drag'; live.lastFixT = 0; await startRec();
   const blocked = !rec.on; release();
   return [blocked, { recOn: rec.on }];
 }""",
@@ -117,6 +118,31 @@ TESTS = {
   const ok = consented(); consentNow = keep;
   return [ok, null];
 }""",
+'drag_without_device_speed': """async () => {
+  // 端末が速度を出さない場合（iPhone で起きる）：位置だけから、発進時刻と距離のタイムを求められるか
+  const out = {};
+  for (const acc of [5, 10, 20]){
+    settings.mode = 'drag'; settings.dragDist = [200, 400]; settings.unit = 'kmh';
+    live.lastFixT = 0; await startRec();
+    const t0 = Date.now() + 5e6 + acc * 1e5, tS = t0 + 4500; let seed = acc; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
+    for (let k = 0; k < 25; k++){ const t = t0 + k * 1000, dt = Math.max(0, (t - tS) / 1000), y = 2.5 * dt * dt + rnd() * 3, x = rnd() * 3, q = toLL(x, y);
+      onPos({ timestamp: t, coords: { latitude: q.lat, longitude: q.lon, accuracy: acc, speed: null } }); }
+    const r = rec.det.laps[0] || (rec.det.cur ? { start: rec.det.cur.start, times: rec.det.cur.times } : null);
+    out[acc] = r ? { startErr: Math.round(r.start - tS), t200: r.times[200] && Math.round(r.times[200] - 8944), t400: r.times[400] && Math.round(r.times[400] - 12649) } : null;
+    stopRec(); await DB.q;
+  }
+  const ok = Object.values(out).every(o => o && Math.abs(o.startErr) < 600 && Math.abs(o.t200) < 600 && Math.abs(o.t400) < 600);
+  return [ok, out];
+}""",
+'stationary_jitter': """async () => {
+  settings.mode = 'circuit'; settings.courseCircuit = courses[0].id;
+  live.lastFixT = 0; await startRec();
+  const base = Date.now() + 0.5e6; let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
+  for (let i = 0; i < 30; i++){ const q = toLL(rnd() * 4, rnd() * 4); onPos({ timestamp: base + i * 1000, coords: { latitude: q.lat, longitude: q.lon, accuracy: 5, speed: i % 2 ? null : -1 } }); }
+  const s = rec.session, vmax = Math.max(...s.points.map(p => p.v)), g = gm.cur;
+  stopRec(); await DB.q;
+  return [vmax === 0 && (!g || (g.lat === 0 && g.lon === 0)), { vmax, g }];
+}""",
 'escape': """() => {
   const evil = '<img src=x onerror=alert(1)>';
   return [esc(evil) === '&lt;img src=x onerror=alert(1)&gt;', esc(evil)];
@@ -125,7 +151,7 @@ TESTS = {
 
 STORAGE = """async () => {
   settings.mode = 'drag';
-  await startRec();
+  live.lastFixT = 0; await startRec();
   const s = rec.session, base = Date.now() + 1e6;
   for (let i = 0; i < 25; i++){
     onPos({ timestamp: base + i * 1000, coords: { latitude: 34.84 + i * 0.0002, longitude: 136.54, accuracy: 4, speed: i < 3 ? 0 : 20 } });
@@ -158,7 +184,7 @@ def main():
         results['storage_append'] = [n == 25, {'points_after_reload': n}]
 
         # 2つのタブ：A で記録中に B を開き、A が止めたら B も「記録中」でなくなるか
-        page.evaluate("async () => { settings.mode = 'drag'; await startRec(); for (let i = 0; i < 5; i++) onPos({ timestamp: Date.now() + 2e6 + i * 1000, coords: { latitude: 34.84, longitude: 136.54 + i * 0.0002, accuracy: 4, speed: 20 } }); await DB.append(rec.session); await new Promise(r => setTimeout(r, 300)); }")
+        page.evaluate("async () => { settings.mode = 'drag'; live.lastFixT = 0; await startRec(); for (let i = 0; i < 5; i++) onPos({ timestamp: Date.now() + 2e6 + i * 1000, coords: { latitude: 34.84, longitude: 136.54 + i * 0.0002, accuracy: 4, speed: 20 } }); await DB.append(rec.session); await new Promise(r => setTimeout(r, 300)); }")
         rid = page.evaluate('rec.session.id')
         pb = ctx.new_page(); pb.on('pageerror', lambda e: errors.append('B: ' + str(e)))
         pb.goto(url); waitjs(pb, 'ready === true'); pb.evaluate(SETUP)
