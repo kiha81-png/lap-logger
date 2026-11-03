@@ -157,6 +157,18 @@ def main():
         n = page.evaluate("id => { const s = sessById(id); return s ? s.points.length : -1 }", sid)
         results['storage_append'] = [n == 25, {'points_after_reload': n}]
 
+        # 2つのタブ：A で記録中に B を開き、A が止めたら B も「記録中」でなくなるか
+        page.evaluate("async () => { settings.mode = 'drag'; await startRec(); for (let i = 0; i < 5; i++) onPos({ timestamp: Date.now() + 2e6 + i * 1000, coords: { latitude: 34.84, longitude: 136.54 + i * 0.0002, accuracy: 4, speed: 20 } }); await DB.append(rec.session); await new Promise(r => setTimeout(r, 300)); }")
+        rid = page.evaluate('rec.session.id')
+        pb = ctx.new_page(); pb.on('pageerror', lambda e: errors.append('B: ' + str(e)))
+        pb.goto(url); waitjs(pb, 'ready === true'); pb.evaluate(SETUP)
+        during = pb.evaluate("id => (sessById(id) || {}).active", rid)
+        page.evaluate('stopRec()')
+        waitjs(pb, "!(sessById(%s) || {}).active" % json.dumps(rid), timeout=5)
+        after = pb.evaluate("id => { const s = sessById(id); return s ? [s.active, s.points.length] : null }", rid)
+        results['two_tabs_sync'] = [during is True and after == [False, 5], {'during': during, 'after': after}]
+        pb.close()
+
         # バックアップ → 別の場所（別の保存領域）へ復元
         backup = page.evaluate('JSON.stringify(buildBackup())')
         page.goto(url.replace('/lap-logger-test/', '/lap-logger-test/sub/'))

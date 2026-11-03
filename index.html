@@ -572,7 +572,7 @@ function parseLatLon(text){
 }
 
 // ---------- 保存 ----------
-const APP_VERSION = '4.0.0';
+const APP_VERSION = '4.0.1';
 const SCHEMA = 2;
 // github.io では同じユーザーのページ同士が保存領域を共有するので、公開URL以外（テスト用など）は名前を分ける
 const NS = location.pathname.replace(/[^/]*$/, '') || '/';
@@ -686,7 +686,27 @@ const DB = {
     for (const s of by.values()){ if (s.gs === undefined) delete s.gs; s._saved = { p: s.points.length, g: (s.gs || []).length }; }
     return [...by.values()];
   },
-  backups(){ return this.db ? this.getAll('backups') : Promise.resolve([]); }
+  backups(){ return this.db ? this.getAll('backups') : Promise.resolve([]); },
+  loadOne(id){
+    if (!this.db) return Promise.resolve(null);
+    return new Promise((res, rej) => {
+      const t = this.db.transaction(['sessions', 'chunks'], 'readonly');
+      const rm = t.objectStore('sessions').get(id), rc = t.objectStore('chunks').getAll(IDBKeyRange.bound([id, -Infinity], [id, Infinity]));
+      t.oncomplete = () => {
+        const m = rm.result; if (!m) return res(null);
+        const s = Object.assign(m, { points: [], _seq: 0 });
+        if (m.vehicle && m.vehicle.type === 'car') s.gs = [];
+        for (const c of (rc.result || []).sort((a, b) => a.seq - b.seq)){
+          for (const q of c.points) s.points.push(q);
+          if (c.gs && c.gs.length){ if (!s.gs) s.gs = []; for (const g of c.gs) s.gs.push(g); }
+          s._seq = c.seq + 1;
+        }
+        s._saved = { p: s.points.length, g: (s.gs || []).length };
+        res(s);
+      };
+      t.onerror = t.onabort = () => rej(t.error);
+    });
+  }
 };
 function showBanner(msg){ const b = $('#banner'); b.textContent = msg; b.hidden = false; }
 
@@ -1431,9 +1451,42 @@ function holdRecLock(id){
   navigator.locks.request(LOCKP + id, () => new Promise(r => { rec.unlock = r; })).catch(() => {});
 }
 async function heldRecLocks(){
-  try { const q = navigator.locks ? await navigator.locks.query() : null; return new Set(((q && q.held) || []).map(l => l.name)); }
-  catch (e){ return new Set(); }
+  if (!navigator.locks) return null;
+  try { const q = await navigator.locks.query(); return new Set((q.held || []).map(l => l.name)); }
+  catch (e){ return null; }
 }
+const bc = 'BroadcastChannel' in window ? new BroadcastChannel('lap-logger' + NS_SUFFIX) : null;
+function bcast(msg){ try { if (bc) bc.postMessage(msg); } catch (e) {} }
+// 別のタブで記録が始まった・終わったら、その記録を読み直して画面を合わせる
+const refreshGen = new Map();
+let renderPending = false;
+async function refreshSession(id){
+  if (!ready || (rec.on && rec.session && rec.session.id === id)) return;
+  const gen = (refreshGen.get(id) || 0) + 1; refreshGen.set(id, gen);
+  let s;
+  try { s = await DB.serial(() => DB.loadOne(id)); } catch (e){ return; }
+  if (refreshGen.get(id) !== gen) return; // もっと新しい読み直しがある
+  if (!s){ sessions = sessions.filter(x => x.id !== id); anaCache.delete(id); }
+  else {
+    if (s.active){ const held = await heldRecLocks(); if (held && !held.has(LOCKP + id)) s.active = false; }
+    if (refreshGen.get(id) !== gen) return;
+    sessions = sessions.filter(x => x.id !== id); sessions.push(s);
+    sessions.sort((a, b) => b.startedAt - a.startedAt);
+    anaCache.delete(id);
+  }
+  if (curTab === 'v-rec'){ if (recState.view === 'lap' && lv.playing) renderPending = true; else renderRec(); }
+  else if (curTab === 'v-run' && !rec.on) renderHome();
+}
+if (bc) bc.onmessage = e => { const m = e.data || {}; if ((m.type === 'rec-start' || m.type === 'rec-stop') && typeof m.id === 'string') refreshSession(m.id); };
+// 画面に戻ってきたときにも、終わっている記録がないか確かめる（連絡を受け取れなかった場合に備えて）
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible') return;
+  const others = sessions.filter(s => s.active && !(rec.on && rec.session === s));
+  if (!others.length) return;
+  const held = await heldRecLocks();
+  if (!held) return;
+  for (const s of others) if (!held.has(LOCKP + s.id)) refreshSession(s.id);
+});
 function setNote(msg, warn){ const el = $('#runNote'); el.textContent = msg || ''; el.className = 'note' + (warn ? ' warnText' : ''); }
 function flash(sel){ const el = $(sel); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1500); }
 function handleEvents(evs){
@@ -1514,7 +1567,8 @@ async function wakeOn(){
 async function startRec(){
   if (rec.on || !ready) return;
   if (!consented()){ $('#consent').hidden = false; return; }
-  if ([...(await heldRecLocks())].some(n => n.startsWith(LOCKP))){ alert(tx('otherTab')); return; }
+  const heldNow = await heldRecLocks();
+  if (heldNow && [...heldNow].some(n => n.startsWith(LOCKP))){ alert(tx('otherTab')); return; }
   if (!('geolocation' in navigator)){ alert(tx('noGeo')); return; }
   if (!window.isSecureContext){ alert(tx('needHttps')); return; }
   if (geo.denied){ // 設定で許可し直された場合に備えて、位置の取得をやり直す
@@ -1571,7 +1625,7 @@ async function startRec(){
   setNote(tx('recNote'));
   if (veh.type === 'car' && !basis){ $('#gLat').textContent = tx('noG'); $('#gLon').textContent = ''; }
   drawGMeter(true);
-  DB.append(s);
+  DB.append(s).then(ok => { if (ok) bcast({ type: 'rec-start', id: s.id }); });
 }
 function stopRec(){
   if (!rec.on) return;
@@ -1580,10 +1634,10 @@ function stopRec(){
   if (rec.wake){ const w = rec.wake; rec.wake = null; rec.wakeHeld = false; w.release().catch(() => {}); }
   const s = rec.session;
   s.active = false; s.endedAt = Date.now();
-  if (rec.unlock){ rec.unlock(); rec.unlock = null; }
+  const unlock = rec.unlock; rec.unlock = null;
   anaCache.delete(s.id);
   analyze(s);
-  DB.append(s).then(ok => { homeNote(); const el = $('#homeNote'); el.textContent = (ok ? tx('saved', 1) : tx('saveFail')) + (el.textContent ? ' ' + el.textContent : ''); el.className = 'note' + (ok ? '' : ' warnText'); });
+  DB.append(s).then(ok => { if (unlock) unlock(); if (ok) bcast({ type: 'rec-stop', id: s.id }); homeNote(); const el = $('#homeNote'); el.textContent = (ok ? tx('saved', 1) : tx('saveFail')) + (el.textContent ? ' ' + el.textContent : ''); el.className = 'note' + (ok ? '' : ' warnText'); });
   document.body.classList.remove('recording'); showUpdate();
   $('#home').hidden = false; $('#live').hidden = true; $('#wakeText').textContent = '';
   renderHome();
@@ -1717,6 +1771,7 @@ $('#sBody').addEventListener('click', async e => {
   if (ex){
     const s = sessById(recState.sid), pc = s && analyze(s).pieces[+ex.dataset.ex];
     if (!pc) return;
+    if (s.active){ alert(tx('recalcActive')); return; }
     const ts = (s.excluded || []).filter(t => Math.abs(t - pc.start) >= 3000);
     s.excluded = pc.excl ? ts : ts.concat(pc.start);
     anaCache.delete(s.id); analyze(s); DB.saveMeta(s); renderSess();
@@ -1737,8 +1792,9 @@ $('#sBody').addEventListener('click', async e => {
   else if (act === 'del'){
     if (s.active){ alert(tx('delActive')); return; }
     if (!confirm(tx('delConfirm', fmtDate(s.startedAt)))) return;
+    refreshGen.set(s.id, (refreshGen.get(s.id) || 0) + 1);
     if (DB.db && !(await DB.del(s.id))) return;
-    sessions = sessions.filter(x => x !== s); anaCache.delete(s.id);
+    sessions = sessions.filter(x => x.id !== s.id); anaCache.delete(s.id);
     history.state && history.state.rec ? history.back() : goRec('list', false);
   }
 });
@@ -2077,7 +2133,11 @@ function lvUpdate(){
     c.fillStyle = '#ffd60a'; c.beginPath(); c.arc(info.cx + P.glat / info.maxG * info.r, info.cy - P.glon / info.maxG * info.r, 7, 0, 2 * Math.PI); c.fill();
   });
 }
-function stopPlay(){ lv.playing = false; cancelAnimationFrame(lv.raf); $('#playBtn').textContent = '▶'; }
+function stopPlay(){
+  const was = lv.playing;
+  lv.playing = false; cancelAnimationFrame(lv.raf); $('#playBtn').textContent = '▶';
+  if (was && renderPending){ renderPending = false; if (curTab === 'v-rec') renderRec(); }
+}
 function play(){
   if (!lv.pc) return;
   if (lv.t >= lv.pc.time) lv.t = 0;
@@ -2453,7 +2513,7 @@ window.addEventListener('resize', () => {
   let otherRec = false;
   for (const s of sessions){
     let dirty = false;
-    if (s.active){ if (held.has(LOCKP + s.id)) otherRec = true; else { s.active = false; dirty = true; } }                      // 前回、記録中に閉じられたもの
+    if (s.active){ if (!held || held.has(LOCKP + s.id)) otherRec = !!held || otherRec; else { s.active = false; dirty = true; } }                      // 前回、記録中に閉じられたもの
     if (!s.vehicle){ s.vehicle = vehSnap(vehicles[0]); dirty = true; }    // 車両の登録より前の記録
     if (!s.mode){ s.mode = 'circuit'; dirty = true; }
     if (s.course && s.course.lines && (!s.course.type || s.course.lines.some(l => l && typeof l === 'object' && 'a' in l))){ migrateCourse(s.course); dirty = true; }
