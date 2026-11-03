@@ -11,15 +11,15 @@ A GPS lap timer for track days that runs in your phone's browser. Works for moto
 
 ### できること
 - **計測モード**：サーキット（周回）、ドラッグ（停止からの加速。距離と速度のタイム）、セグメント（A地点からB地点）
-- **コース**：Googleマップの座標を貼り付けて地点を登録し、数周走った記録からラインの向きを自動で決めます。前後・左右・回転・幅の微調整ができます。ファイルで仲間と共有できます。
+- **コース**：「記録だけ」で数周走り、その軌跡をタップしてラインを置けます（スタート/ゴールの自動配置も可）。Googleマップの座標を貼り付けても登録でき、向きは走った記録から自動で決めます。前後・左右・回転・幅の微調整ができます。ファイルで仲間と共有できます。
 - **Gメーター**：バイクはGPSから計算、車はスマホの加速度センサーで測ります。
 - **解析**：ラップの統計（速度、ブレーキと惰性の時間）、再生スライダー、地図への速度とGの表示、2ラップの比較（タイム差）、G-G図
 - **その他**：日本語／English、km/h／mph、横画面、屋外向けの高コントラスト表示、色覚に配慮した配色、オフラインでの起動
 
 ### 使い方
 1. 上のURLをスマホで開き、位置情報を許可します。「ホーム画面に追加」すると、アプリのように使えて、データも消えにくくなります。
-2. 「コース」タブでコースを作ります。Googleマップで地点を長押しすると座標が出るので、それを貼り付けます。
-3. 数周走ったら、記録の画面で「この記録からコースの向きを決める」を押します。
+2. 「コース」タブで「新規」を押し、そのまま計測を始めて数周走ります（コースが未完成のあいだは記録だけになります）。
+3. 「コース」タブの「走った記録から作る」で、その記録を選びます。「自動で作る」でスタート/ゴールが置かれます。セクターは図の走行ラインをタップして置きます。Googleマップの座標を貼り付けても作れます。
 4. 大事な記録は、「設定 → 全データをバックアップ」で保存しておいてください。
 
 ### 安全について
@@ -50,7 +50,7 @@ A GPS lap timer for track days that runs in your phone's browser. Works for moto
 
 ### Features
 - **Modes**: Circuit (laps), Drag (standing start; distance and speed times), Segment (point A to point B)
-- **Tracks**: paste coordinates from Google Maps, then set the line directions automatically from a recording of a few laps. Fine-tune position, rotation and width. Share tracks as files.
+- **Tracks**: drive a few laps in recording-only mode, then tap the driven path to place lines (or place the start/finish automatically). You can also paste coordinates from Google Maps; directions are set automatically from a recording. Fine-tune position, rotation and width. Share tracks as files.
 - **G meter**: calculated from GPS for motorcycles, measured with the phone motion sensor for cars.
 - **Analysis**: lap stats (speed, brake and coast time), playback slider, speed/G on the map, two-lap comparison (time delta), G-G diagram
 - **Other**: Japanese/English, km/h/mph, landscape, high-contrast outdoor display, color-vision friendly colors, works offline

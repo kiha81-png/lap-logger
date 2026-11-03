@@ -47,6 +47,7 @@ h4{margin:0 0 6px;font-size:13px;color:var(--sub);letter-spacing:.08em}
 .dueBox:not([hidden]){display:flex;align-items:center;gap:10px;background:#3a3000;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14px}
 .dueBox button{flex:0 0 auto;padding:8px 12px}
 canvas{display:block;width:100%;background:var(--panel);border-radius:14px;touch-action:pan-y}
+#cPreview{touch-action:none;cursor:crosshair}
 
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#10141a;border-top:1px solid var(--line);
   padding-bottom:env(safe-area-inset-bottom);z-index:10}
@@ -293,14 +294,17 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
   <div class="row"><select id="cSel" aria-label="track"></select><button id="cNew" data-i18n="newBtn"></button></div>
   <label class="f"><span data-i18n="courseName"></span><input id="cName" autocomplete="off"></label>
   <div class="seg" id="cType"><button data-t="circuit" data-i18n="typeCircuit"></button><button data-t="segment" data-i18n="typeSegment"></button></div>
-  <p class="note" data-i18n="howToPoint"></p>
+  <h3 data-i18n="traceTitle"></h3>
+  <p class="note" data-i18n="traceNote"></p>
+  <div class="row"><select id="cSessSel" aria-label="recording"></select></div>
+  <p class="note" id="cTapHint" aria-live="polite"></p>
   <canvas id="cPreview"></canvas>
+  <div class="row eq"><button id="cZin" data-i18n="zoomIn"></button><button id="cZout" data-i18n="zoomOut"></button><button id="cZfit" data-i18n="zoomFit"></button></div>
+  <div class="row eq"><button id="cBuild" class="primary" data-i18n="autoBuild"></button><button id="cAuto" data-i18n="autoBtn"></button></div>
+  <p class="note" data-i18n="pitNote"></p>
   <div id="cLines"></div>
   <button id="cAddLine" class="wide" data-i18n="addSector"></button>
-  <h3 data-i18n="autoHdgTitle"></h3>
-  <p class="note" data-i18n="autoHdgNote"></p>
-  <p class="note" data-i18n="pitNote"></p>
-  <div class="row"><select id="cSessSel" aria-label="recording"></select><button id="cAuto" class="primary" data-i18n="autoBtn"></button></div>
+  <p class="note" data-i18n="howToPoint"></p>
   <h3 data-i18n="shareCourseTitle"></h3>
   <p class="note" data-i18n="shareCourseNote"></p>
   <div class="row eq"><button id="cShare" class="primary" data-i18n="shareCourse"></button><button id="cImport" data-i18n="importCourse"></button></div>
@@ -407,7 +411,15 @@ const I18N = {
     fwd: m => `前へ${m}m`, bwd: m => `後ろへ${m}m`, leftM: m => `左へ${m}m`, rightM: m => `右へ${m}m`, rotL: d => `⟲ ${d}°`, rotR: d => `⟳ ${d}°`,
     wMinus: '幅 −2m', wPlus: '幅 +2m', snap: '走行ラインに寄せる', hdgThis: 'この線の向きを自動で', delLine: 'この線を削除', delLineConfirm: n => `${n}を削除しますか？`,
     autoHdgTitle: '記録から向きを自動で決める', autoHdgNote: 'このコースで数周走った記録を選びます。各ラインの向きを、走行ラインに対して直角に決めます。',
-    autoBtn: '向きを決める', allSess: 'このコースのすべての記録', noSessForCourse: 'このコースの記録がありません',
+    autoBtn: '向きだけ決め直す', allSess: 'このコースのすべての記録', noSessForCourse: 'まだ記録がありません',
+    traceTitle: '走った記録から作る', traceNote: 'まず「記録だけ」で数周走ります（計測画面でコースが未完成なら、記録だけになります）。その記録を選び、下の図の走行ラインをタップすると、選んでいるライン（CL・S1…）がそこに置かれ、向きも自動で決まります。2本指で拡大・移動できます。「自動で作る」は、スタート/ゴールを自動で置きます。',
+    tapPlace: n => `タップで置くライン：${n}`, tapFar: '走行ラインの近くをタップしてください。', zoomIn: '拡大', zoomOut: '縮小', zoomFit: '全体',
+    autoBuild: '自動で作る', autoBuildSeg: 'セグメントは自動で作れません。スタートとゴールをタップで置いてください。',
+    autoBuildNone: '周回が見つかりませんでした。同じコースを2周以上走った記録を選ぶか、タップで置いてください。',
+    autoBuildDone: n => `スタート/ゴールを置きました（${n}回の通過を確認）。位置が違うときは、図をタップして直してください。`,
+    autoBuildOver: 'いまのスタート/ゴールの位置を置き換えますか？',
+    recalcInto: (n, name, m) => `選んだ記録${n}件を「${name}」で計算し直しますか？` + (m ? `
+そのうち${m}件は別のコースの記録で、このコースの記録に移ります（元のコースでの結果は消えます）。` : ''),
     autoNoNear: n => `${n}：近く（25m以内）を走った記録がありません。地点を確認してください。`, autoMixed: n => `${n}：走る向きがばらついています。地点を確認してください。`,
     autoDone: n => `${n}本のラインの向きを決めました。`, autoRecalcConfirm: n => `記録${n}件を新しいコース設定で再計算しますか？`, snapNo: '近く（25m以内）を走った記録がありません。',
     pasteFail: '貼り付けできませんでした。入力欄を長押しして貼り付けてください。', badPoint: '座標を読み取れませんでした（例：34.84321, 136.54102）。', needPoint: '先に地点を入力してください。',
@@ -494,7 +506,15 @@ const I18N = {
     fwd: m => `Fwd ${m} m`, bwd: m => `Back ${m} m`, leftM: m => `Left ${m} m`, rightM: m => `Right ${m} m`, rotL: d => `⟲ ${d}°`, rotR: d => `⟳ ${d}°`,
     wMinus: 'Width −2 m', wPlus: 'Width +2 m', snap: 'Snap to driven line', hdgThis: 'Auto direction (this line)', delLine: 'Delete this line', delLineConfirm: n => `Delete ${n}?`,
     autoHdgTitle: 'Auto directions from a recording', autoHdgNote: 'Pick a recording with a few laps on this track. Each line is set perpendicular to the driven path.',
-    autoBtn: 'Set directions', allSess: 'All recordings of this track', noSessForCourse: 'No recordings for this track',
+    autoBtn: 'Redo directions only', allSess: 'All recordings of this track', noSessForCourse: 'No recordings yet',
+    traceTitle: 'Build from a recording', traceNote: 'First drive a few laps with recording only (if the track is incomplete, the run screen just records). Pick that recording and tap the driven path below: the selected line (CL, S1…) is placed there and its direction is set automatically. Use two fingers to zoom and move. "Build automatically" places the start/finish for you.',
+    tapPlace: n => `Tap to place: ${n}`, tapFar: 'Tap close to the driven path.', zoomIn: 'Zoom in', zoomOut: 'Zoom out', zoomFit: 'Fit',
+    autoBuild: 'Build automatically', autoBuildSeg: 'Segments cannot be built automatically. Tap to place the start and finish.',
+    autoBuildNone: 'No laps found. Pick a recording with two or more laps of the same track, or tap to place the line.',
+    autoBuildDone: n => `Start/finish placed (${n} passes found). If it is in the wrong place, tap the map to move it.`,
+    autoBuildOver: 'Replace the current start/finish position?',
+    recalcInto: (n, name, m) => `Recalculate ${n} selected recording(s) with "${name}"?` + (m ? `
+${m} of them belong to another track and will move to this track (their old results are replaced).` : ''),
     autoNoNear: n => `${n}: no driving within 25 m. Check the point.`, autoMixed: n => `${n}: mixed directions nearby. Check the point.`,
     autoDone: n => `Set ${n} line direction(s).`, autoRecalcConfirm: n => `Recalculate ${n} recording(s) with the new track settings?`, snapNo: 'No driving within 25 m.',
     pasteFail: 'Could not paste. Long-press the field and paste.', badPoint: 'Could not read the coordinates (e.g. 34.84321, 136.54102).', needPoint: 'Enter the point first.',
@@ -576,7 +596,7 @@ function parseLatLon(text){
 }
 
 // ---------- 保存 ----------
-const APP_VERSION = '4.0.3';
+const APP_VERSION = '4.1.0';
 const SCHEMA = 2;
 // github.io では同じユーザーのページ同士が保存領域を共有するので、公開URL以外（テスト用など）は名前を分ける
 const NS = location.pathname.replace(/[^/]*$/, '') || '/';
@@ -1119,6 +1139,7 @@ function fitter(pts, w, h, pad){
   const ox = pad + ((w - 2 * pad) - (x1 - x0) * sc) / 2, oy = h - pad - ((h - 2 * pad) - (y1 - y0) * sc) / 2;
   const f = p => [ox + (p.x - x0) * sc, oy - (p.y - y0) * sc];
   f.sc = sc;
+  f.inv = (X, Y) => ({ x: x0 + (X - ox) / sc, y: y0 + (oy - Y) / sc });
   return f;
 }
 function strokePath(ctx, pts, f){ ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...f(p)) : ctx.moveTo(...f(p))); ctx.stroke(); }
@@ -1831,14 +1852,14 @@ $('#sBody').addEventListener('click', async e => {
     history.state && history.state.rec ? history.back() : goRec('list', false);
   }
 });
-function recalcSession(s, ask){
+function recalcSession(s, ask, into){
   if (s.active){ alert(tx('recalcActive')); return false; }
   const v = s.vehicle && vehicles.find(x => x.id === s.vehicle.id);
   if (s.mode === 'drag'){
     if (ask && !confirm(tx('recalcDrag'))) return false;
     s.settings = Object.assign({}, s.settings, { dragDist: settings.dragDist.slice(), unit: settings.unit });
   } else {
-    const c = courseById(s.course.id);
+    const c = into || (s.course && courseById(s.course.id));
     if (!c){ alert(tx('courseGone')); return false; }
     if (ask && !confirm(tx('recalcConfirm', c.name))) return false;
     s.course = clone(c);
@@ -2205,19 +2226,32 @@ $('#lMap').addEventListener('click', e => {
 }));
 
 // ---------- コースタブ ----------
-const cv = { id: null, sel: 0 };
+const cv = { id: null, sel: 0, trace: null, z: 1, ox: 0, oy: 0, hit: null };
 const editCourse = () => courseById(cv.id) || courses[0];
 function courseSessions(c){ return sessions.filter(s => s.mode !== 'drag' && s.course && s.course.id === c.id && s.points.length > 2); }
+// 軌跡に使える記録：このコースのものを先に、ほかのコースの記録も選べる
+function traceCands(c){
+  const own = courseSessions(c), other = sessions.filter(s => s.mode !== 'drag' && s.points.length > 2 && !own.includes(s));
+  return own.concat(other).filter(s => !s.active);
+}
+function traceSessions(c){
+  if (cv.trace === '*') return courseSessions(c).filter(s => !s.active);
+  const s = sessById(cv.trace);
+  return s && !s.active && s.mode !== 'drag' && s.points.length > 2 ? [s] : [];
+}
 function renderCourseTab(){
   const c = editCourse(); cv.id = c.id;
   if (cv.sel >= c.lines.length) cv.sel = 0;
   $('#cSel').innerHTML = courses.map(x => `<option value="${esc(x.id)}"${x.id === c.id ? ' selected' : ''}>${esc(x.name)}（${esc(tx(x.type === 'segment' ? 'modeSegment' : 'modeCircuit'))}）</option>`).join('');
   $('#cName').value = c.name;
   $$('#cType button').forEach(b => b.classList.toggle('on', b.dataset.t === c.type));
-  const ss = courseSessions(c);
-  $('#cSessSel').innerHTML = ss.length ? `<option value="*">${esc(tx('allSess'))}</option>` + ss.map(s => `<option value="${esc(s.id)}">${fmtDate(s.startedAt)}・${esc(s.vehicle ? s.vehicle.name : '')}</option>`).join('')
+  const own = courseSessions(c).filter(s => !s.active), cands = traceCands(c);
+  if (!(cv.trace === '*' && own.length) && !cands.some(s => s.id === cv.trace)) cv.trace = own.length ? '*' : cands.length ? cands[0].id : null;
+  $('#cSessSel').innerHTML = cands.length ? (own.length ? `<option value="*">${esc(tx('allSess'))}</option>` : '') + cands.map(s => `<option value="${esc(s.id)}">${fmtDate(s.startedAt)}・${esc(s.vehicle ? s.vehicle.name : '')}${s.course && s.course.id !== c.id ? '・' + esc(s.course.name) : ''}</option>`).join('')
     : `<option value="">${esc(tx('noSessForCourse'))}</option>`;
-  $('#cAuto').disabled = !ss.length;
+  if (cv.trace) $('#cSessSel').value = cv.trace;
+  $('#cAuto').disabled = $('#cBuild').disabled = !cands.length;
+  $('#cTapHint').textContent = tx('tapPlace', lineName(c, cv.sel));
   $('#cLines').innerHTML = c.lines.map((l, i) => lineCardHtml(c, l, i)).join('');
   drawCoursePreview(); drawLineZoom();
 }
@@ -2244,22 +2278,191 @@ function lineCardHtml(c, l, i){
       </div></div>` : ''}
   </div>`;
 }
-function previewData(c, cx){
-  const pts = [];
-  for (const s of courseSessions(c).slice(0, 5)) pts.push(s.points);
-  return pts;
+function previewData(c){
+  return traceSessions(c).slice(0, 5).map(s => s.points);
 }
 function drawCoursePreview(){
-  const g = setupCanvas($('#cPreview'), 280); if (!g) return;
-  const c = editCourse(), { ctx, w, h } = g, ready = c.lines.filter(l => ptOk(l.c));
-  if (!ready.length) return canvasMsg(ctx, tx('noLinesYet'));
-  const proj = makeProj(ready[0].c.lat, ready[0].c.lon), traces = previewData(c).map(ps => ps.map(proj));
-  const pts = [].concat(...traces, ...ready.map(l => num(l.hdg) ? [lineSeg(l, proj).a, lineSeg(l, proj).b] : [proj(l.c)]));
-  const f = fitter(pts.length > 1 ? pts : pts.concat([{ x: 60, y: 60 }, { x: -60, y: -60 }]), w, h, 22);
-  ctx.strokeStyle = '#4a525e'; ctx.lineWidth = 1.5;
-  traces.forEach(tr => strokePath(ctx, tr, f));
+  const g = setupCanvas($('#cPreview'), 320); cv.hit = null; if (!g) return;
+  const c = editCourse(), { ctx, w, h } = g, ready = c.lines.filter(l => ptOk(l.c)), raw = previewData(c);
+  // 走行の記録があれば、それを基準に表示する（線を置いても図が動かない）
+  const o = raw.length ? raw[0][0] : ready.length ? ready[0].c : null;
+  if (!o) return canvasMsg(ctx, tx('noLinesYet'));
+  const key = o.lat + ',' + o.lon + '|' + traceSessions(c).slice(0, 5).map(s => s.id + ':' + (s.rev || 0) + ':' + s.points.length).join(',');
+  if (!cv.cache || cv.cache.key !== key){
+    const pj = makeProj(o.lat, o.lon);
+    cv.cache = { key, proj: pj, traces: raw.map(ps => ps.map(p => { const q = pj(p); q.t = p.t; return q; })) };
+  }
+  const { proj, traces } = cv.cache;
+  const pts = traces.length ? [].concat(...traces) : [].concat(...ready.map(l => num(l.hdg) ? [lineSeg(l, proj).a, lineSeg(l, proj).b] : [proj(l.c)]));
+  const base = fitter(pts.length > 1 ? pts : pts.concat([{ x: 60, y: 60 }, { x: -60, y: -60 }]), w, h, 22);
+  // 拡大・移動：画面上の座標を、中央を基準に z 倍して (ox, oy) ずらす
+  const f = p => { const [X, Y] = base(p); return [(X - w / 2) * cv.z + w / 2 + cv.ox, (Y - h / 2) * cv.z + h / 2 + cv.oy]; };
+  f.sc = base.sc * cv.z;
+  f.inv = (X, Y) => base.inv((X - w / 2 - cv.ox) / cv.z + w / 2, (Y - h / 2 - cv.oy) / cv.z + h / 2);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
+  ctx.strokeStyle = '#6b7480'; ctx.lineWidth = 2;
+  for (const tr of traces){ // 測位が途切れたところは線をつながない
+    ctx.beginPath(); let lx = 0, ly = 0;
+    tr.forEach((p, i) => {
+      const [X, Y] = f(p);
+      if (!i || p.t - tr[i - 1].t > 3000){ ctx.moveTo(X, Y); lx = X; ly = Y; }
+      else if (Math.abs(X - lx) + Math.abs(Y - ly) >= 1 || i === tr.length - 1){ ctx.lineTo(X, Y); lx = X; ly = Y; }
+    });
+    ctx.stroke();
+  }
   drawCourseLines(ctx, f, c, proj, cv.sel);
+  ctx.restore();
+  cv.hit = { f, proj, traces, w, h };
 }
+// 画面の (X, Y) に一番近い走行区間。maxPx より遠ければ null
+function nearestTrace(X, Y, maxPx){
+  const H = cv.hit; if (!H) return null;
+  const P = H.f.inv(X, Y), lim = maxPx / H.f.sc;
+  let best = null;
+  for (const tr of H.traces){
+    for (let i = 1; i < tr.length; i++){
+      if (tr[i].t - tr[i - 1].t > 3000) continue;
+      const a = tr[i - 1], b = tr[i], dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy;
+      if (L2 < 0.25) continue;
+      const k = Math.max(0, Math.min(1, ((P.x - a.x) * dx + (P.y - a.y) * dy) / L2)), q = { x: a.x + k * dx, y: a.y + k * dy };
+      const d = Math.hypot(q.x - P.x, q.y - P.y);
+      if (d <= lim && (!best || d < best.d)) best = { d, q, dir: Math.atan2(dx, dy) };
+    }
+  }
+  return best && { c: H.proj.inv(best.q), dir: best.dir };
+}
+// 走行区間の上に線を置く。同じ向きで通った周の平均の位置・向きにそろえる
+function placeLine(l, c0, dir, arr){
+  l.c = c0; l.hdg = ((dir / D2R) % 360 + 360) % 360;
+  snapLine(l, arr);
+  const { out } = nearSegs(l.c, arr, 15), ref = l.hdg * D2R, use = out.filter(o => Math.cos(o.dir - ref) > 0.7);
+  if (use.length){
+    const sx = use.reduce((a, o) => a + Math.sin(o.dir), 0), sy = use.reduce((a, o) => a + Math.cos(o.dir), 0);
+    l.hdg = ((Math.atan2(sx, sy) / D2R) + 360) % 360;
+  }
+}
+// 周回を見つけて、スタート/ゴールの位置と向きを決める（見つからなければ null）
+function findStartLine(arr){
+  let best = null;
+  for (const s of arr){
+    const ps = s.points; if (ps.length < 20) continue;
+    const pr = makeProj(ps[0].lat, ps[0].lon), q = [], CELL = 20;
+    // 更新間隔が短いと点の揺れが距離や向きを乱すので、4m 以上離れた点だけを使う
+    let dist = 0, lastT = -Infinity;
+    for (let i = 0; i < ps.length; i++){
+      const x = pr(ps[i]), pv = q[q.length - 1], gap = ps[i].t - lastT > 3000;
+      lastT = ps[i].t;
+      if (pv && !gap){ const d = Math.hypot(x.x - pv.x, x.y - pv.y); if (d < 4) continue; dist += d; }
+      if (pv && gap) x.gap = true;
+      x.s = dist; x.v = ps[i].v || 0; q.push(x);
+    }
+    for (let i = 0; i < q.length; i++){ // 向き：前後2点から
+      const a = q[Math.max(0, i - 2)], b = q[Math.min(q.length - 1, i + 2)];
+      q[i].dir = Math.atan2(b.x - a.x, b.y - a.y);
+    }
+    const grid = new Map(), key = (gx, gy) => gx + ',' + gy;
+    q.forEach((p, i) => { const k = key(Math.floor(p.x / CELL), Math.floor(p.y / CELL)); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(i); });
+    let lastS = -Infinity;
+    for (let i = 0; i < q.length; i++){
+      const p = q[i];
+      if (p.s - lastS < 5 || p.v < MIN_CROSS_V * 2) continue;
+      lastS = p.s;
+      // まっすぐか：前後 80m の向きが ±12° 以内
+      let ok = true, sumV = 0, nV = 0;
+      for (let j = i; j >= 0 && p.s - q[j].s <= 80 && ok; j--){ if (q[j].gap && j !== i){ ok = false; break; } if (Math.cos(q[j].dir - p.dir) < Math.cos(12 * D2R)) ok = false; sumV += q[j].v; nV++; }
+      for (let j = i + 1; j < q.length && q[j].s - p.s <= 80 && ok; j++){ if (q[j].gap){ ok = false; break; } if (Math.cos(q[j].dir - p.dir) < Math.cos(12 * D2R)) ok = false; sumV += q[j].v; nV++; }
+      if (!ok || !nV) continue;
+      // 同じ場所を同じ向きで通った回数（200m 以上走ってから戻ってきたら、別の周）
+      const near = [], gx = Math.floor(p.x / CELL), gy = Math.floor(p.y / CELL);
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++)
+        for (const j of grid.get(key(gx + dx, gy + dy)) || []){
+          const o = q[j];
+          if (Math.hypot(o.x - p.x, o.y - p.y) < 12 && Math.cos(o.dir - p.dir) > 0.9) near.push(o.s);
+        }
+      near.sort((a, b) => a - b);
+      let passes = 0, prevS = -Infinity;
+      for (const v of near){ if (v - prevS > 200) passes++; prevS = v; }
+      if (passes < 2) continue;
+      const score = passes * 1000 + sumV / nV;
+      if (!best || score > best.score) best = { score, passes, c: pr.inv(p), dir: p.dir };
+    }
+  }
+  return best;
+}
+let pz = null, pzRaf = 0; // 図の上の指（pointerId → 位置）
+const redrawSoon = () => { if (!pzRaf) pzRaf = requestAnimationFrame(() => { pzRaf = 0; drawCoursePreview(); }); };
+function zoomAt(X, Y, k){
+  const z = Math.max(1, Math.min(60, cv.z * k)), H = cv.hit; if (!H) return;
+  // (X, Y) の下にある点が動かないように、ずらし量を直す
+  cv.ox = X - H.w / 2 - (X - H.w / 2 - cv.ox) / cv.z * z;
+  cv.oy = Y - H.h / 2 - (Y - H.h / 2 - cv.oy) / cv.z * z;
+  cv.z = z;
+  if (z === 1){ cv.ox = 0; cv.oy = 0; }
+  if (pz) redrawSoon(); else drawCoursePreview();
+}
+function tapPreview(X, Y){
+  const c = editCourse(), l = c.lines[cv.sel], hit = nearestTrace(X, Y, 28);
+  if (!l) return;
+  if (!hit){ alert(tx('tapFar')); return; }
+  placeLine(l, hit.c, hit.dir, traceSessions(c));
+  refreshLine();
+}
+{
+  const el = $('#cPreview'), pos = e => { const r = el.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  el.addEventListener('pointerdown', e => {
+    if (!pz) pz = { pts: new Map(), moved: 0, multi: false, start: pos(e) };
+    pz.pts.set(e.pointerId, pos(e)); if (pz.pts.size > 1) pz.multi = true;
+    try { el.setPointerCapture(e.pointerId); } catch (err){}
+  });
+  el.addEventListener('pointermove', e => {
+    if (!pz || !pz.pts.has(e.pointerId)) return;
+    const before = [...pz.pts.values()], p = pos(e); pz.pts.set(e.pointerId, p);
+    const after = [...pz.pts.values()];
+    if (after.length >= 2){
+      const [a0, b0] = before, [a1, b1] = after, d0 = Math.hypot(a0[0] - b0[0], a0[1] - b0[1]), d1 = Math.hypot(a1[0] - b1[0], a1[1] - b1[1]);
+      const m0 = [(a0[0] + b0[0]) / 2, (a0[1] + b0[1]) / 2], m1 = [(a1[0] + b1[0]) / 2, (a1[1] + b1[1]) / 2];
+      if (cv.z > 1 || d1 > d0){ cv.ox += m1[0] - m0[0]; cv.oy += m1[1] - m0[1]; }
+      if (d0 > 0) zoomAt(m1[0], m1[1], d1 / d0); else redrawSoon();
+    } else {
+      pz.moved = Math.max(pz.moved, Math.hypot(p[0] - pz.start[0], p[1] - pz.start[1]));
+      if (cv.z > 1 && pz.moved > 8){ cv.ox += p[0] - before[0][0]; cv.oy += p[1] - before[0][1]; redrawSoon(); }
+    }
+  });
+  const end = e => {
+    if (!pz || !pz.pts.has(e.pointerId)) return;
+    pz.pts.delete(e.pointerId);
+    if (pz.pts.size) return;
+    const tap = e.type === 'pointerup' && !pz.multi && pz.moved <= 8, p = pos(e);
+    pz = null; drawCoursePreview();
+    if (tap) tapPreview(p[0], p[1]);
+  };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', end);
+}
+$('#cZin').addEventListener('click', () => { if (cv.hit) zoomAt(cv.hit.w / 2, cv.hit.h / 2, 2); });
+$('#cZout').addEventListener('click', () => { if (cv.hit) zoomAt(cv.hit.w / 2, cv.hit.h / 2, 0.5); });
+$('#cZfit').addEventListener('click', () => { cv.z = 1; cv.ox = cv.oy = 0; drawCoursePreview(); });
+$('#cSessSel').addEventListener('change', e => { cv.trace = e.target.value || null; cv.z = 1; cv.ox = cv.oy = 0; drawCoursePreview(); drawLineZoom(); });
+function offerRecalc(c, arr){
+  const done = arr.filter(s => !s.active), prob = courseProblem(c);
+  if (!done.length) return;
+  if (prob){ alert(prob); return; } // まだ使えないコース：何が足りないかを伝える
+  if (!confirm(tx('recalcInto', done.length, c.name, done.filter(s => !s.course || s.course.id !== c.id).length))) return;
+  done.forEach(s => recalcSession(s, false, c));
+  if (curTab === 'v-course') renderCourseTab();
+}
+$('#cBuild').addEventListener('click', () => {
+  const c = editCourse(), arr = traceSessions(c);
+  if (c.type === 'segment'){ alert(tx('autoBuildSeg')); return; }
+  if (!arr.length) return;
+  const r = findStartLine(arr);
+  if (!r){ alert(tx('autoBuildNone')); return; }
+  const l = c.lines[0];
+  if (ptOk(l.c) && !confirm(tx('autoBuildOver'))) return;
+  placeLine(l, r.c, r.dir, arr);
+  cv.sel = 0; saveCourses(); renderCourseTab();
+  alert(tx('autoBuildDone', r.passes));
+  offerRecalc(c, arr);
+});
 function drawLineZoom(){
   const el = $('[data-zoom]'); if (!el) return;
   const g = setupCanvas(el, 240); if (!g) return;
@@ -2374,8 +2577,8 @@ $('#cLines').addEventListener('click', async e => {
   if (act === 'mv' || act === 'sd'){ const h = num(l.hdg) ? l.hdg : 0; l.c = offsetLL(l.c, act === 'mv' ? h : h + 90, v); }
   else if (act === 'rot') l.hdg = (((num(l.hdg) ? l.hdg : 0) + v) % 360 + 360) % 360;
   else if (act === 'wd') l.w = Math.max(4, Math.min(200, l.w + v));
-  else if (act === 'snap'){ if (!snapLine(l, courseSessions(c))){ alert(tx('snapNo')); return; } }
-  else if (act === 'hdg1'){ const r = autoHeadingLine(l, courseSessions(c)); if (r !== 'ok'){ alert(tx(r === 'none' ? 'autoNoNear' : 'autoMixed', lineName(c, i))); return; } }
+  else if (act === 'snap'){ if (!snapLine(l, traceSessions(c))){ alert(tx('snapNo')); return; } }
+  else if (act === 'hdg1'){ const r = autoHeadingLine(l, traceSessions(c)); if (r !== 'ok'){ alert(tx(r === 'none' ? 'autoNoNear' : 'autoMixed', lineName(c, i))); return; } }
   else if (act === 'paste'){
     try { const p = parseLatLon(await navigator.clipboard.readText()); if (!p){ alert(tx('badPoint')); return; } l.c = p; }
     catch (err){ alert(tx('pasteFail')); return; }
@@ -2401,7 +2604,7 @@ $('#cLines').addEventListener('change', e => {
   if (!p){ alert(tx('badPoint')); return; }
   l.c = p; refreshLine();
 });
-$('#cSel').addEventListener('change', e => { cv.id = e.target.value; cv.sel = 0; renderCourseTab(); });
+$('#cSel').addEventListener('change', e => { cv.id = e.target.value; cv.sel = 0; cv.trace = null; cv.z = 1; cv.ox = cv.oy = 0; renderCourseTab(); });
 $('#cName').addEventListener('change', e => { editCourse().name = e.target.value.trim() || tx('untitled'); saveCourses(); renderCourseTab(); });
 $('#cType').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -2409,7 +2612,7 @@ $('#cType').addEventListener('click', e => {
 });
 $('#cNew').addEventListener('click', () => {
   const c = migrateCourse({ id: 'c' + Date.now(), name: tx('newCourse'), type: 'circuit', lines: [newLine()] });
-  courses.push(c); cv.id = c.id; cv.sel = 0; saveCourses(); renderCourseTab();
+  courses.push(c); cv.id = c.id; cv.sel = 0; cv.trace = null; cv.z = 1; cv.ox = cv.oy = 0; saveCourses(); renderCourseTab();
   $('#cName').focus();
 });
 $('#cAddLine').addEventListener('click', () => {
@@ -2428,13 +2631,12 @@ $('#cDel').addEventListener('click', () => {
   if (courses.length < 2){ alert(tx('oneCourse')); return; }
   const c = editCourse();
   if (!confirm(tx('delCourseConfirm', c.name))) return;
-  courses = courses.filter(x => x !== c); cv.id = courses[0].id; cv.sel = 0; saveCourses(); renderCourseTab();
+  courses = courses.filter(x => x !== c); cv.id = courses[0].id; cv.sel = 0; cv.trace = null; cv.z = 1; cv.ox = cv.oy = 0; saveCourses(); renderCourseTab();
 });
 $('#cAuto').addEventListener('click', () => {
-  const c = editCourse(), v = $('#cSessSel').value, all = courseSessions(c);
-  const arr = v === '*' ? all : all.filter(s => s.id === v);
+  const c = editCourse(), arr = traceSessions(c);
   if (!arr.length) return;
-  if (autoHeadings(c, arr) && !courseProblem(c) && confirm(tx('autoRecalcConfirm', arr.length))) arr.forEach(s => recalcSession(s, false));
+  if (autoHeadings(c, arr)) offerRecalc(c, arr);
 });
 
 // ---------- 設定タブ ----------

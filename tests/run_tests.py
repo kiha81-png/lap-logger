@@ -157,6 +157,88 @@ TESTS = {
   stopRec(); await DB.q;
   return [vmax === 0 && (!g || (g.lat === 0 && g.lon === 0)), { vmax, g }];
 }""",
+'auto_build': """() => {
+  // 楕円形のコース：直線 400m ×2（時速144km）とカーブ R80（時速72km）。1周目の前にピットロード（時速40km）を通る
+  const stad = (laps, hz, noise) => {
+    const L = 800 + 2 * Math.PI * 80, at = d => { d = ((d % L) + L) % L;
+      if (d < 400) return { x: d, y: 0, v: 40 };
+      if (d < 400 + Math.PI * 80){ const a = (d - 400) / 80 - Math.PI / 2; return { x: 400 + 80 * Math.cos(a), y: 80 + 80 * Math.sin(a), v: 20 }; }
+      if (d < 800 + Math.PI * 80){ const k = d - 400 - Math.PI * 80; return { x: 400 - k, y: 160, v: 40 }; }
+      const a = (d - 800 - Math.PI * 80) / 80 + Math.PI / 2; return { x: 80 * Math.cos(a), y: 80 + 80 * Math.sin(a), v: 20 }; };
+    let seed = 3; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
+    const pts = []; let t = 1.7e12;
+    for (let x = 50; x < 350; x += 11 / hz){ const q = toLL(x, -25); pts.push({ t, lat: q.lat, lon: q.lon, v: 11, acc: 5 }); t += 1000 / hz; }
+    for (let d = 350; d < 350 + laps * L; ){ const q = at(d), ll = toLL(q.x + rnd() * noise, q.y + rnd() * noise); pts.push({ t, lat: ll.lat, lon: ll.lon, v: q.v, acc: 5 }); t += 1000 / hz; d += q.v / hz; }
+    return { L, pts };
+  };
+  const out = {};
+  for (const [hz, noise] of [[1, 6], [5, 4]]){
+    const { pts } = stad(4, hz, noise), s = { id: 'ab' + hz, startedAt: 1.7e12, mode: 'circuit', vehicle: vehSnap(vehicles[0]), course: { id: 'other', name: 'o', type: 'circuit', lines: [] }, settings: { minLap: 20, maxAcc: 20 }, points: pts, laps: [] };
+    const r = findStartLine([s]); if (!r){ out[hz] = null; continue; }
+    const c = migrateCourse({ id: 'tab', name: 't', type: 'circuit', lines: [newLine()] });
+    placeLine(c.lines[0], r.c, r.dir, [s]);
+    const pr = makeProj(34.84, 136.54), q = pr(c.lines[0].c), h = c.lines[0].hdg, dh = a => Math.abs(((h - a + 540) % 360) - 180);
+    s.course = c; const det = runDet(s), exp = (800 / 40 + 2 * Math.PI * 80 / 20) * 1000;
+    const onStraight = q.x > 60 && q.x < 340 && ((Math.abs(q.y) < 4 && dh(90) < 6) || (Math.abs(q.y - 160) < 4 && dh(270) < 6));
+    out[hz] = { ok: onStraight && r.passes >= 3 && det.laps.length >= 3 && det.laps.every(l => Math.abs(l.time - exp) < 1500), x: Math.round(q.x), y: Math.round(q.y), hdg: Math.round(h), passes: r.passes, laps: det.laps.map(l => (l.time / 1000).toFixed(1)) };
+  }
+  // 1周に満たない記録では作らない
+  const none = findStartLine([{ points: stad(0.9, 1, 4).pts }]);
+  return [!!out[1] && out[1].ok && !!out[5] && out[5].ok && none === null, { out, none }];
+}""",
+'tap_place': """() => {
+  // 楕円形のコース：直線 400m ×2（時速144km）とカーブ R80（時速72km）。1周目の前にピットロード（時速40km）を通る
+  const stad = (laps, hz, noise) => {
+    const L = 800 + 2 * Math.PI * 80, at = d => { d = ((d % L) + L) % L;
+      if (d < 400) return { x: d, y: 0, v: 40 };
+      if (d < 400 + Math.PI * 80){ const a = (d - 400) / 80 - Math.PI / 2; return { x: 400 + 80 * Math.cos(a), y: 80 + 80 * Math.sin(a), v: 20 }; }
+      if (d < 800 + Math.PI * 80){ const k = d - 400 - Math.PI * 80; return { x: 400 - k, y: 160, v: 40 }; }
+      const a = (d - 800 - Math.PI * 80) / 80 + Math.PI / 2; return { x: 80 * Math.cos(a), y: 80 + 80 * Math.sin(a), v: 20 }; };
+    let seed = 3; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
+    const pts = []; let t = 1.7e12;
+    for (let x = 50; x < 350; x += 11 / hz){ const q = toLL(x, -25); pts.push({ t, lat: q.lat, lon: q.lon, v: 11, acc: 5 }); t += 1000 / hz; }
+    for (let d = 350; d < 350 + laps * L; ){ const q = at(d), ll = toLL(q.x + rnd() * noise, q.y + rnd() * noise); pts.push({ t, lat: ll.lat, lon: ll.lon, v: q.v, acc: 5 }); t += 1000 / hz; d += q.v / hz; }
+    return { L, pts };
+  };
+  const { pts } = stad(3, 1, 3), s = { id: 'tp1', startedAt: 1.7e12, mode: 'circuit', vehicle: vehSnap(vehicles[0]), course: { id: 'other', name: 'o', type: 'circuit', lines: [] }, settings: { minLap: 20, maxAcc: 20 }, points: pts, laps: [] };
+  sessions.push(s);
+  const c = migrateCourse({ id: 'ctp', name: 'tap', type: 'circuit', lines: [newLine(), newLine()] });
+  courses.push(c); cv.id = c.id; cv.sel = 1; cv.trace = 'tp1';
+  showTab('v-course'); renderCourseTab();
+  const pr = makeProj(34.84, 136.54), ll = toLL(200, 160), [X, Y] = cv.hit.f(cv.hit.proj(ll));
+  tapPreview(X + 6, Y - 5); // 少しずれた所をタップしても、走行ラインの上に置く
+  const l = c.lines[1], q = pr(l.c), dh = Math.abs(((l.hdg - 270 + 540) % 360) - 180);
+  const ok1 = Math.abs(q.y - 160) < 3 && Math.abs(q.x - 200) < 15 && dh < 5;
+  const [X1, Y1] = cv.hit.f(cv.hit.proj(ll)), same = Math.hypot(X1 - X, Y1 - Y) < 1; // 線を置いても図は動かない
+  zoomAt(X, Y, 4); const [X2, Y2] = cv.hit.f(cv.hit.proj(ll)), keep = same && Math.hypot(X2 - X, Y2 - Y) < 1;
+  cv.sel = 0; const far = cv.hit.f(cv.hit.proj(toLL(200, 80))); tapPreview(far[0], far[1]); // コースの内側（走っていない所）
+  const ok3 = !ptOk(c.lines[0].c);
+  courses = courses.filter(x => x !== c); sessions = sessions.filter(x => x !== s); cv.id = courses[0].id; cv.sel = 0; cv.z = 1; cv.ox = cv.oy = 0; cv.trace = null; saveCourses(); showTab('v-run');
+  return [ok1 && keep && ok3, { x: Math.round(q.x), y: Math.round(q.y), hdg: Math.round(l.hdg), keep, ok3 }];
+}""",
+'course_perf': """() => {
+  // 楕円形のコース：直線 400m ×2（時速144km）とカーブ R80（時速72km）。1周目の前にピットロード（時速40km）を通る
+  const stad = (laps, hz, noise) => {
+    const L = 800 + 2 * Math.PI * 80, at = d => { d = ((d % L) + L) % L;
+      if (d < 400) return { x: d, y: 0, v: 40 };
+      if (d < 400 + Math.PI * 80){ const a = (d - 400) / 80 - Math.PI / 2; return { x: 400 + 80 * Math.cos(a), y: 80 + 80 * Math.sin(a), v: 20 }; }
+      if (d < 800 + Math.PI * 80){ const k = d - 400 - Math.PI * 80; return { x: 400 - k, y: 160, v: 40 }; }
+      const a = (d - 800 - Math.PI * 80) / 80 + Math.PI / 2; return { x: 80 * Math.cos(a), y: 80 + 80 * Math.sin(a), v: 20 }; };
+    let seed = 3; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
+    const pts = []; let t = 1.7e12;
+    for (let x = 50; x < 350; x += 11 / hz){ const q = toLL(x, -25); pts.push({ t, lat: q.lat, lon: q.lon, v: 11, acc: 5 }); t += 1000 / hz; }
+    for (let d = 350; d < 350 + laps * L; ){ const q = at(d), ll = toLL(q.x + rnd() * noise, q.y + rnd() * noise); pts.push({ t, lat: ll.lat, lon: ll.lon, v: q.v, acc: 5 }); t += 1000 / hz; d += q.v / hz; }
+    return { L, pts };
+  };
+  const { pts } = stad(100, 10, 3), s = { id: 'pf1', startedAt: 1.7e12, mode: 'circuit', vehicle: vehSnap(vehicles[0]), course: { id: 'other', name: 'o', type: 'circuit', lines: [] }, settings: { minLap: 20, maxAcc: 20 }, points: pts, laps: [] };
+  let t = performance.now(); const r = findStartLine([s]); const tFind = performance.now() - t;
+  sessions.push(s); const c = migrateCourse({ id: 'cpf', name: 'pf', type: 'circuit', lines: [newLine()] });
+  courses.push(c); cv.id = c.id; cv.sel = 0; cv.trace = 'pf1'; showTab('v-course'); renderCourseTab();
+  t = performance.now(); for (let i = 0; i < 10; i++) drawCoursePreview(); const tDraw = (performance.now() - t) / 10;
+  courses = courses.filter(x => x !== c); sessions = sessions.filter(x => x !== s); cv.id = courses[0].id; cv.trace = null; cv.cache = null; saveCourses(); showTab('v-run');
+  const hint = tx('tapHint');
+  return [!!r && tFind < 3000 && tDraw < 60 && typeof hint === 'string', { n: pts.length, tFind: Math.round(tFind), tDraw: Math.round(tDraw), hint: hint.slice(0, 12) }];
+}""",
 'escape': """() => {
   const evil = '<img src=x onerror=alert(1)>';
   return [esc(evil) === '&lt;img src=x onerror=alert(1)&gt;', esc(evil)];
