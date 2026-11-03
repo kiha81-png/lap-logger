@@ -5,7 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0d10">
 <!-- 外部との通信をすべて禁止する（データはこの端末から出さない） -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; font-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; font-src 'none'; frame-src 'none'; worker-src 'self'; manifest-src 'self'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="referrer" content="no-referrer">
 <title>Lap Logger</title>
 <style>
@@ -36,6 +42,10 @@ h4{margin:0 0 6px;font-size:13px;color:var(--sub);letter-spacing:.08em}
 .danger{background:#5a1d1a;color:#fff}
 .primary{background:var(--accent);color:#fff}
 #banner{background:#5a4a00;color:#fff;padding:10px 16px;font-size:14px}
+#updBar:not([hidden]){display:flex;align-items:center;justify-content:space-between;gap:10px;background:#12305e;color:#fff;padding:8px 16px;font-size:14px}
+#updBar button{padding:8px 14px}
+.dueBox:not([hidden]){display:flex;align-items:center;gap:10px;background:#3a3000;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14px}
+.dueBox button{flex:0 0 auto;padding:8px 12px}
 canvas{display:block;width:100%;background:var(--panel);border-radius:14px;touch-action:pan-y}
 
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#10141a;border-top:1px solid var(--line);
@@ -114,6 +124,24 @@ body.recording nav{display:none}
 .lcard .ls{font-size:14px;color:var(--sub);font-weight:500;line-height:1.5;margin-top:2px;padding-right:72px}
 .lcard .det{position:absolute;right:12px;top:50%;transform:translateY(-50%);border:1px solid #fff;border-radius:8px;padding:6px 10px;font-size:13px}
 .lcard.best{background:#26213a}
+.lcard{cursor:pointer}
+.lcard.excl{opacity:.5}
+.lcard .ex{position:absolute;right:12px;bottom:10px;padding:4px 10px;font-size:12px;border-radius:8px}
+.lcard .det{top:14px;transform:none}
+#consent:not([hidden]){position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px}
+#consent .box{background:var(--panel);border-radius:18px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:18px}
+#consent h2{margin:0 0 10px;font-size:22px}
+#consent ul{padding-left:20px;line-height:1.7;font-size:15px}
+#consent button{width:100%;padding:16px;font-size:18px;margin-top:8px}
+/* 色覚に配慮した配色 */
+body.cb{--good:#4da3ff;--bad:#ff9f0a;--best:#f0e442}
+/* 屋外向けの高コントラスト表示 */
+body.hc{--bg:#000;--panel:#000;--panel2:#111;--line:#fff;--text:#fff;--sub:#e6e6e6;--btn:#222}
+body.hc .cell,body.hc .block,body.hc .rcard,body.hc .lcard,body.hc .mcard,body.hc .lineCard{border:2px solid #fff}
+body.hc .val{font-size:clamp(34px,11vw,72px)}
+body.hc .lbl,body.hc .note{font-size:16px}
+body.hc button{border:2px solid #fff}
+body.hc .lcard.excl{opacity:.8;text-decoration:line-through}
 .player{display:flex;align-items:center;gap:10px;margin:10px 0}
 .player input{flex:1;padding:0;accent-color:var(--accent);background:none;border:0}
 .player button{width:52px;padding:12px 0}
@@ -177,6 +205,8 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
 </head>
 <body>
 <div id="banner" hidden></div>
+<div id="consent" hidden><div class="box"><h2 data-i18n="consentTitle"></h2><div data-i18n-html="consentBody"></div><button id="consentOk" class="primary" data-i18n="consentOk"></button></div></div>
+<div id="updBar" hidden><span data-i18n="updateAvail"></span><button id="updBtn" class="primary" data-i18n="updateBtn"></button></div>
 
 <section id="v-run" class="on">
   <div id="home" class="wrap">
@@ -199,6 +229,7 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
       </div>
     </div>
     <div class="dots" id="dots"><button data-i="0" aria-label="1"></button><button data-i="1" aria-label="2"></button><button data-i="2" aria-label="3"></button></div>
+    <div class="dueBox" id="dueBox" hidden><span id="dueText"></span><button id="dueBtn" class="primary" data-i18n="backupNow"></button></div>
     <p class="note" id="homeNote"></p>
     <button id="startBtn" class="startBtn" disabled></button>
   </div>
@@ -265,7 +296,11 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
   <button id="cAddLine" class="wide" data-i18n="addSector"></button>
   <h3 data-i18n="autoHdgTitle"></h3>
   <p class="note" data-i18n="autoHdgNote"></p>
+  <p class="note" data-i18n="pitNote"></p>
   <div class="row"><select id="cSessSel" aria-label="recording"></select><button id="cAuto" class="primary" data-i18n="autoBtn"></button></div>
+  <h3 data-i18n="shareCourseTitle"></h3>
+  <p class="note" data-i18n="shareCourseNote"></p>
+  <div class="row eq"><button id="cShare" class="primary" data-i18n="shareCourse"></button><button id="cImport" data-i18n="importCourse"></button></div>
   <h3 data-i18n="deleteCourse"></h3>
   <button id="cDel" class="danger wide" data-i18n="delCourseBtn"></button>
 </div></section>
@@ -289,10 +324,25 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
     <div class="row"><label class="chk"><input type="checkbox" id="flipF"><span data-i18n="flipF"></span></label><label class="chk"><input type="checkbox" id="flipL"><span data-i18n="flipL"></span></label></div>
   </div>
   <button id="vehDel" class="danger wide" data-i18n="delVeh"></button>
+  <h3 data-i18n="display"></h3>
+  <div class="seg" id="unitSeg"><button data-u="kmh">km/h</button><button data-u="mph">mph</button></div>
+  <div class="row"><label class="chk"><input type="checkbox" id="optHc"><span data-i18n="optHc"></span></label></div>
+  <div class="row"><label class="chk"><input type="checkbox" id="optCb"><span data-i18n="optCb"></span></label></div>
+  <button id="showConsent" class="wide" data-i18n="showConsent"></button>
   <h3 data-i18n="judge"></h3>
   <label class="f"><span data-i18n="minLap"></span><input id="optMinLap" type="number" inputmode="decimal" min="5"></label>
   <label class="f"><span data-i18n="maxAcc"></span><input id="optAcc" type="number" inputmode="decimal" min="3"></label>
   <p class="note" data-i18n="minCross"></p>
+  <h3 data-i18n="dataTitle"></h3>
+  <p class="note" data-i18n="dataNote"></p>
+  <p class="note" id="lastBackup"></p>
+  <div class="row eq"><button id="backupBtn" class="primary" data-i18n="backupBtn"></button><button id="restoreBtn" data-i18n="restoreBtn"></button></div>
+  <h4 style="margin-top:14px" data-i18n="autoBackupTitle"></h4>
+  <div id="autoBackups"></div>
+  <h3 data-i18n="supportTitle"></h3>
+  <p class="note" data-i18n="supportNote"></p>
+  <div class="row eq"><button id="copyInfo" data-i18n="copyInfo"></button><button id="openIssues" data-i18n="openIssues"></button></div>
+  <p class="note" id="verInfo"></p>
 </div></section>
 
 <nav>
@@ -319,10 +369,10 @@ const I18N = {
     courseIncomplete: p => `${p}\nこのままではラップは計測されません。記録だけ始めますか？（あとで向きを決めて再計算できます）`,
     recordOnly: '記録のみ（ラップ計測なし）', outLapWait: 'アウトラップ（ライン通過で計測開始）', lapN: n => `ラップ ${n}`,
     segWait: 'スタートライン待ち', segRun: '計測中', lastLap: '前ラップ', lastRun: '前回', pb: '自己ベスト',
-    sector: 'セクター', sectorN: k => `セクター${k}`, speedKmh: '速度 km/h', missed: '取りこぼし', bestBadge: 'ベスト',
+    sector: 'セクター', sectorN: k => `セクター${k}`, speedKmh: () => `速度 ${U()}`, missed: '取りこぼし', bestBadge: 'ベスト',
     gLat: '横G', gLon: '前後G', mSpeed: '速度', mSum: '合成G', noG: 'Gなし', R: '右', L: '左',
     dragStop: '停止してください（2秒止まると準備完了）', dragReady: 'スタートできます', dragRun: '計測中', dragDone: '完了（止まると次の計測）',
-    dragDists: '計測する距離', dragSpeeds: '速度のタイム：0-100km/h・0-200km/h', drag1hz: 'スマホのGPSは1秒に1回の更新のため、ドラッグのタイムは目安です。',
+    dragDists: '計測する距離', dragSpeeds: () => `速度のタイム：${spdTargets().map(x => '0-' + x).join('・')}${U()}`, drag1hz: 'スマホのGPSは1秒に1回の更新のため、ドラッグのタイムは目安です。',
     saved: n => `${n}件を保存しました。記録タブで確認できます。`, saveFail: '保存に失敗しました。記録タブからJSONで書き出してください。',
     saveFailBanner: '記録を保存できませんでした。容量不足の可能性があります。JSONで書き出してください。',
     dbFail: 'この端末では記録を保存できません（ブラウザの保存領域が使えません）。', lsFail: '設定を保存できませんでした。',
@@ -335,12 +385,12 @@ const I18N = {
     statsGps: (hz, n, acc) => `GPS 平均 ${hz} Hz（${n}点、±${acc}m）`, statsG: n => `Gセンサー ${n}サンプル`,
     theo: v => `理論ベスト ${v}`, pbVehCourse: v => `この車両・コースの自己ベスト ${v}`, pbVehDrag: v => `この車両の自己ベスト ${v}`,
     outLap: 'アウトラップ', inLap: 'インラップ', runN: n => `ラン ${n}`,
-    lapStat1: (mn, mx, av) => `速度 ${mn}〜${mx} km/h・平均 ${av}`, lapStat2: (b, c) => `ブレーキ ${b}秒・惰性 ${c}秒`,
+    lapStat1: (mn, mx, av) => `速度 ${mn}〜${mx} ${U()}・平均 ${av}`, lapStat2: (b, c) => `ブレーキ ${b}秒・惰性 ${c}秒`,
     statDef: '「ブレーキ」は前後Gが −0.15G 以下、「惰性」は −0.15G より大きく +0.05G 未満の時間です。⚠はGPSが3秒以上途切れたラップで、ベストに数えません。*はラインで区切られていない周回です。',
     detail: '詳細', recalc: '今の設定で再計算', recalcConfirm: n => `コース「${n}」と今の設定で計算し直しますか？（GPSとセンサーの記録はそのまま残ります）`,
     recalcDrag: '今のドラッグ設定（距離）と車両設定で計算し直しますか？', recalcActive: '記録中は再計算できません。', courseGone: '元のコースが見つかりません。',
     autoFromThis: 'この記録からコースの向きを決める', del: '削除', delConfirm: d => `${d} の記録を削除しますか？元に戻せません。`, delActive: '記録中のデータは削除できません。',
-    noLapsYet: '完了したラップがありません', dragRunLine: (d, t, v) => `${d}m  ${t}秒  ${v}km/h`, spdTime: (s, t) => `0-${s}km/h  ${t}秒`, maxSpd: v => `最高 ${v} km/h`,
+    noLapsYet: '完了したラップがありません', dragRunLine: (d, t, v) => `${distLabel(d)}  ${t}秒  ${v}${U()}`, spdTime: (s, t, u) => `0-${s}${u}  ${t}秒`, maxSpd: v => `最高 ${v} ${U()}`,
     importBad: 'このアプリで書き出した記録ではありません。', importParse: 'JSONとして読めませんでした。', importDup: '同じ記録がすでにあります。上書きしますか？', importOk: '読み込みました。',
     compareNone: '比較なし', compareWith: x => `比較：${x}`, rdTime: '経過', rdSector: 'セクター', rdSpeed: '速度', rdLat: '緯度', rdLon: '経度', rdHdg: '向き', rdDelta: '比較との差',
     map: '走行ライン', speedGraph: '速度（距離）', deltaGraph: '比較とのタイム差（上が遅い）', gGraph: 'G（距離）', ggTitle: 'G-G図（上：加速、下：ブレーキ、右：右コーナー）',
@@ -372,6 +422,25 @@ const I18N = {
     motionPerm: '加速度センサーが使えません。iPhoneでは、センサーの利用を許可してください。', calNoData: 'センサーの値が取れませんでした。',
     calShake: '揺れています。停車した状態でやり直してください。', calRotate: '画面の自動回転をオンにして、画面が正しい向きで表示された状態でやり直してください。', calFlat: 'スマホが寝すぎています。もう少し立てて固定してください。',
     judge: '判定の設定', minLap: '最短ラップ（秒）：これより短いラップは、ラインを二度踏んだとみなして無視します', maxAcc: 'GPS精度の上限（m）：これより悪い点は捨てます',
+    supportTitle: '不具合の報告', supportNote: '報告は GitHub の Issues で受け付けています（公開されます）。「端末情報をコピー」の内容を貼ってください。走行データや位置は含まれません。走行データ（JSON・CSV）は貼らないでください。',
+    copyInfo: '端末情報をコピー', openIssues: '報告ページを開く', copied: 'コピーしました。', copyManual: 'この内容をコピーしてください：',
+    consentTitle: 'ご利用の前に', consentOk: '内容を確認して、同意する', showConsent: '注意事項をもう一度読む',
+    consentBody: '<ul><li><b>走行中は、スマホを見たり操作したりしないでください。</b>安全な運転・走行を最優先にしてください。</li><li>スマホは、しっかり固定してください。固定は自己責任で行ってください。</li><li>このアプリは、サーキットなどの閉ざされた場所での使用を想定しています。公道では交通法規を守ってください。車載や計測が認められているかは、走行会やサーキットの規則で確認してください。</li><li>タイム・速度・Gは、スマホのGPSとセンサーから求めた<b>目安</b>です。公式の計時の代わりにはなりません。</li><li>記録中に画面を消したり、他のアプリに切り替えたりすると、記録が止まります。バッテリーの減りと発熱に注意してください。</li><li>データはこの端末の中だけに保存され、外部には送られません。大事な記録はバックアップしてください。</li><li>このアプリは無保証で提供されます（MITライセンス）。使用によって生じた損害について、作者は責任を負いません。</li></ul>',
+    needConsent: '先に、注意事項を確認して同意してください。',
+    display: '表示', optHc: '屋外向けの高コントラスト表示', optCb: '色覚に配慮した配色（青とオレンジ）',
+    pitNote: 'ピットロードがラインの近くを通る場合は、幅を狭めてください（プレビューと拡大図で確かめられます）。',
+    shareCourseTitle: 'コースの共有', shareCourseNote: 'コースをファイルにして、仲間に送れます。受け取った人は「コースを読み込む」で追加できます。走行データは入りません。',
+    shareCourse: 'このコースを共有', importCourse: 'コースを読み込む', courseImported: n => `コース「${n}」を追加しました。`,
+    lowBattery: n => `バッテリーが残り${n}%です。充電してから計測してください。`,
+    excl: '除外', unexcl: '戻す', exclTag: '（除外）',
+    dbBlocked: '別のタブでこのアプリが開いています。ほかのタブを閉じてから、読み込み直してください。', dbReload: 'アプリが更新されました。読み込み直してください。',
+    otherTab: '別のタブ（またはホーム画面のアプリ）で記録中です。同時に2か所で計測しないでください。',
+    importTooBig: 'ファイルが大きすぎます（500MBまで）。', restoreConfirm: (s, c, v) => `記録${s}件・コース${c}件・車両${v}件を復元します。同じものがあれば上書きします。よろしいですか？`,
+    restoreDone: n => `${n}件の記録を復元しました。`, autoBackupItem: (d, n) => `${d} の自動バックアップ（記録${n}件）を書き出す`,
+    dataTitle: 'データ（バックアップと復元）', dataNote: '記録はこの端末の中だけに保存されます。機種変更や、ブラウザによる自動削除に備えて、ときどき全データをバックアップしてください。共有ボタンから、ファイルアプリやクラウドに保存できます。',
+    backupBtn: '全データをバックアップ', restoreBtn: 'バックアップから復元', backupNow: '今すぐバックアップ', autoBackupTitle: '自動バックアップ（データ形式を変えたときに作成）',
+    lastBackupAt: d => `前回のバックアップ：${d}`, neverBackup: 'まだバックアップしていません。', backupDue: n => `前回のバックアップから${n}日以上たっています。`, backupDueNever: 'まだ一度もバックアップしていません。',
+    updateAvail: '新しいバージョンがあります。', updateBtn: '更新', verInfo: v => `バージョン ${v}`,
     minCross: '時速約14km未満でラインを通過しても数えません（停車中にGPSが揺れて、ラインをまたいだと判定されるのを防ぐため）。', untitled: '(無題)', sec: '秒'
   },
   en: {
@@ -387,10 +456,10 @@ const I18N = {
     courseIncomplete: p => `${p}\nLaps will not be timed. Record anyway? (You can set the line directions and recalculate later.)`,
     recordOnly: 'Recording only (no lap timing)', outLapWait: 'Out lap (timing starts at the line)', lapN: n => `Lap ${n}`,
     segWait: 'Waiting for the start line', segRun: 'Running', lastLap: 'Last lap', lastRun: 'Last run', pb: 'Best',
-    sector: 'Sector', sectorN: k => `Sector ${k}`, speedKmh: 'Speed km/h', missed: 'missed', bestBadge: 'BEST',
+    sector: 'Sector', sectorN: k => `Sector ${k}`, speedKmh: () => `Speed ${U()}`, missed: 'missed', bestBadge: 'BEST',
     gLat: 'Lat G', gLon: 'Long G', mSpeed: 'Speed', mSum: 'Total G', noG: 'No G', R: 'R', L: 'L',
     dragStop: 'Come to a stop (ready after 2 s)', dragReady: 'Ready – go!', dragRun: 'Running', dragDone: 'Done (stop to re-arm)',
-    dragDists: 'Distances', dragSpeeds: 'Speed times: 0-100 and 0-200 km/h', drag1hz: 'Phone GPS updates about once per second, so drag times are approximate.',
+    dragDists: 'Distances', dragSpeeds: () => `Speed times: ${spdTargets().map(x => '0-' + x).join(', ')} ${U()}`, drag1hz: 'Phone GPS updates about once per second, so drag times are approximate.',
     saved: n => `Saved ${n}. See the Records tab.`, saveFail: 'Save failed. Export JSON from the Records tab.',
     saveFailBanner: 'Could not save the recording (storage may be full). Export it as JSON.',
     dbFail: 'Recordings cannot be saved on this device (browser storage unavailable).', lsFail: 'Could not save settings.',
@@ -403,12 +472,12 @@ const I18N = {
     statsGps: (hz, n, acc) => `GPS average ${hz} Hz (${n} points, ±${acc} m)`, statsG: n => `G sensor ${n} samples`,
     theo: v => `Theoretical best ${v}`, pbVehCourse: v => `Personal best (vehicle & track) ${v}`, pbVehDrag: v => `Personal best (vehicle) ${v}`,
     outLap: 'Out lap', inLap: 'In lap', runN: n => `Run ${n}`,
-    lapStat1: (mn, mx, av) => `Speed ${mn}–${mx} km/h, avg ${av}`, lapStat2: (b, c) => `Brake ${b} s, coast ${c} s`,
+    lapStat1: (mn, mx, av) => `Speed ${mn}–${mx} ${U()}, avg ${av}`, lapStat2: (b, c) => `Brake ${b} s, coast ${c} s`,
     statDef: '"Brake" = long. G at or below −0.15 G; "coast" = between −0.15 G and +0.05 G. ⚠ = GPS gap over 3 s (not counted as best). * = not bounded by the line on both ends.',
     detail: 'DETAIL', recalc: 'Recalculate with current settings', recalcConfirm: n => `Recalculate with track "${n}" and the current settings? (Raw GPS/sensor data is kept.)`,
     recalcDrag: 'Recalculate with the current drag distances and vehicle settings?', recalcActive: 'Cannot recalculate while recording.', courseGone: 'The original track no longer exists.',
     autoFromThis: 'Set line directions from this recording', del: 'Delete', delConfirm: d => `Delete the recording from ${d}? This cannot be undone.`, delActive: 'Cannot delete a recording in progress.',
-    noLapsYet: 'No completed laps', dragRunLine: (d, t, v) => `${d} m  ${t} s  ${v} km/h`, spdTime: (s, t) => `0-${s} km/h  ${t} s`, maxSpd: v => `Top ${v} km/h`,
+    noLapsYet: 'No completed laps', dragRunLine: (d, t, v) => `${distLabel(d)}  ${t} s  ${v} ${U()}`, spdTime: (s, t, u) => `0-${s} ${u}  ${t} s`, maxSpd: v => `Top ${v} ${U()}`,
     importBad: 'This is not a recording exported from this app.', importParse: 'Could not read the file as JSON.', importDup: 'This recording already exists. Overwrite?', importOk: 'Imported.',
     compareNone: 'No comparison', compareWith: x => `Compare: ${x}`, rdTime: 'Time', rdSector: 'Sector', rdSpeed: 'Speed', rdLat: 'Latitude', rdLon: 'Longitude', rdHdg: 'Heading', rdDelta: 'Delta',
     map: 'Track map', speedGraph: 'Speed vs distance', deltaGraph: 'Time delta vs comparison (up = slower)', gGraph: 'G vs distance', ggTitle: 'G-G diagram (up: accel, down: brake, right: right turn)',
@@ -440,6 +509,25 @@ const I18N = {
     motionPerm: 'Motion sensor unavailable. On iPhone, allow motion access.', calNoData: 'No sensor data received.',
     calShake: 'The phone is moving. Try again while parked.', calRotate: 'Turn on auto-rotate and try again with the screen shown the right way up.', calFlat: 'The phone is too flat. Mount it more upright.',
     judge: 'Detection', minLap: 'Minimum lap (s): shorter laps are treated as a double crossing and ignored', maxAcc: 'GPS accuracy limit (m): worse fixes are discarded',
+    supportTitle: 'Report a problem', supportNote: 'Reports are taken on GitHub Issues (public). Paste the result of "Copy device info" — it contains no driving data or locations. Do not paste driving data (JSON/CSV).',
+    copyInfo: 'Copy device info', openIssues: 'Open the report page', copied: 'Copied.', copyManual: 'Copy this text:',
+    consentTitle: 'Before you start', consentOk: 'I have read this and agree', showConsent: 'Read the safety notes again',
+    consentBody: '<ul><li><b>Do not look at or touch the phone while riding or driving.</b> Safety comes first.</li><li>Mount the phone securely, at your own responsibility.</li><li>This app is meant for closed venues such as race tracks. On public roads, obey traffic laws. Check the event or track rules on whether phone mounts and timing are allowed.</li><li>Times, speeds and G are <b>estimates</b> from the phone GPS and sensors. They are not official timing.</li><li>Turning off the screen or switching apps while recording stops the recording. Watch battery drain and heat.</li><li>Data is stored only on this device and is never sent anywhere. Back up important recordings.</li><li>This app is provided without warranty (MIT License). The author is not liable for any damage arising from its use.</li></ul>',
+    needConsent: 'Please read and agree to the safety notes first.',
+    display: 'Display', optHc: 'High-contrast outdoor display', optCb: 'Color-vision friendly colors (blue/orange)',
+    pitNote: 'If the pit lane runs close to a line, make the line narrower (check it in the preview and zoom view).',
+    shareCourseTitle: 'Share a track', shareCourseNote: 'Save the track as a file and send it to friends. They can add it with "Import track". No driving data is included.',
+    shareCourse: 'Share this track', importCourse: 'Import track', courseImported: n => `Added track "${n}".`,
+    lowBattery: n => `Battery at ${n}%. Charge before recording.`,
+    excl: 'Exclude', unexcl: 'Include', exclTag: ' (excluded)',
+    dbBlocked: 'This app is open in another tab. Close the other tabs and reload.', dbReload: 'The app was updated. Please reload.',
+    otherTab: 'Recording is in progress in another tab (or the home-screen app). Do not record in two places at once.',
+    importTooBig: 'The file is too large (max 500 MB).', restoreConfirm: (s, c, v) => `Restore ${s} recordings, ${c} tracks and ${v} vehicles? Existing items with the same ID will be overwritten.`,
+    restoreDone: n => `Restored ${n} recordings.`, autoBackupItem: (d, n) => `Export automatic backup from ${d} (${n} recordings)`,
+    dataTitle: 'Data (backup & restore)', dataNote: 'Recordings are stored only on this device. Back up all data now and then, in case you change phones or the browser clears site data. Use the share button to save to Files or cloud storage.',
+    backupBtn: 'Back up all data', restoreBtn: 'Restore from backup', backupNow: 'Back up now', autoBackupTitle: 'Automatic backups (made when the data format changes)',
+    lastBackupAt: d => `Last backup: ${d}`, neverBackup: 'No backup yet.', backupDue: n => `It has been ${n}+ days since your last backup.`, backupDueNever: 'You have never backed up.',
+    updateAvail: 'A new version is available.', updateBtn: 'Update', verInfo: v => `Version ${v}`,
     minCross: 'Line crossings below about 14 km/h are ignored (prevents false crossings from GPS jitter while stopped).', untitled: '(untitled)', sec: 's'
   }
 };
@@ -450,7 +538,12 @@ const R = 6371008.8, D2R = Math.PI / 180, G0 = 9.80665;
 const MIN_CROSS_V = 4;                 // m/s。これ未満のライン通過は数えない
 const BRAKE_G = -0.15, ACCEL_G = 0.05; // ブレーキ・惰性の判定
 const MODES = ['circuit', 'drag', 'segment'];
-const DRAG_DISTS = [200, 400, 800, 1000, 1200, 1600], DRAG_SPDS = [100, 200];
+const DRAG_DISTS = [201.168, 402.336, 200, 400, 800, 1000, 1200, 1600];
+const KMH = 3.6, MPH = 2.2369362920544;
+const spdK = () => settings.unit === 'mph' ? MPH : KMH;
+const U = () => settings.unit === 'mph' ? 'mph' : 'km/h';
+const spdTargets = u => (u || U()) === 'mph' ? [60, 100] : [100, 200];
+const distLabel = d => { d = +d; return d === 201.168 ? '1/8mi' : d === 402.336 ? '1/4mi' : d + 'm'; };
 const PAL = ['#2f7bff','#ff9f0a','#30d158','#ff453a','#bf5af2','#64d2ff','#ffd60a','#ff6482','#ac8e68','#5e5ce6'];
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -479,47 +572,131 @@ function parseLatLon(text){
 }
 
 // ---------- 保存 ----------
+const APP_VERSION = '4.0.0';
+const SCHEMA = 2;
+// github.io では同じユーザーのページ同士が保存領域を共有するので、公開URL以外（テスト用など）は名前を分ける
+const NS = location.pathname.replace(/[^/]*$/, '') || '/';
+const NS_SUFFIX = NS === '/lap-logger/' ? '' : '@' + NS;
+const LSP = 'll' + NS_SUFFIX + '.';
 const LS = {
-  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
-  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { showBanner(tx('lsFail')); } }
+  get(k, d){ try { const v = localStorage.getItem(LSP + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v){ try { localStorage.setItem(LSP + k, JSON.stringify(v)); } catch (e) { showBanner(tx('lsFail')); } }
 };
+// 記録の本体（GPSの点とGの値）は chunks に追記し、それ以外の情報だけを sessions に置く
+function stripSess(s){
+  const o = {};
+  for (const k of Object.keys(s)) if (k !== 'points' && k !== 'gs' && k[0] !== '_') o[k] = s[k];
+  o.schema = SCHEMA;
+  return o;
+}
+const exportSess = s => Object.assign(stripSess(s), { points: s.points, gs: s.gs });
 const DB = {
-  db: null,
+  db: null, q: Promise.resolve(), opened: false,
   open(){
     return new Promise((res, rej) => {
-      const r = indexedDB.open('lapLogger', 1);
-      r.onupgradeneeded = () => r.result.createObjectStore('sessions', { keyPath: 'id' });
-      r.onsuccess = () => { this.db = r.result; res(); };
+      const r = indexedDB.open('lapLogger' + NS_SUFFIX, SCHEMA);
+      r.onupgradeneeded = e => {
+        const db = r.result, trn = r.transaction;
+        if (e.oldVersion < 1) db.createObjectStore('sessions', { keyPath: 'id' });
+        if (e.oldVersion < 2){
+          db.createObjectStore('chunks', { keyPath: ['sid', 'seq'] });
+          db.createObjectStore('backups', { keyPath: 'id' });
+          if (e.oldVersion >= 1){ // 旧形式から移すまえに、元のデータを丸ごと控えておく
+            const ss = trn.objectStore('sessions'), cs = trn.objectStore('chunks'), bs = trn.objectStore('backups');
+            ss.getAll().onsuccess = ev => {
+              const all = ev.target.result || [];
+              if (all.length){
+                try {
+                  const rq = bs.put({ id: 'b' + Date.now(), at: Date.now(), reason: 'v1→v2', count: all.length,
+                    data: JSON.stringify({ sessions: all, courses: LS.get('courses', []), vehicles: LS.get('vehicles', []) }) });
+                  rq.onerror = ev => { ev.preventDefault(); ev.stopPropagation(); }; // 容量不足などでも、移行の取引全体は取り消さない
+                } catch (err) {}
+              }
+              for (const s of all){ cs.put({ sid: s.id, seq: 0, points: s.points || [], gs: s.gs || [] }); ss.put(stripSess(s)); }
+            };
+          }
+        }
+      };
+      r.onsuccess = () => {
+        this.db = r.result; this.opened = true;
+        this.db.onversionchange = () => { this.db.close(); this.db = null; showBanner(tx('dbReload')); };
+        res();
+      };
       r.onerror = () => rej(r.error);
+      r.onblocked = () => showBanner(tx('dbBlocked'));
     });
   },
-  write(fn){
-    if (!this.db) return Promise.resolve(null); // 保存領域が使えない（起動時に案内済み）
+  write(stores, fn){
+    if (!this.db) return Promise.resolve(this.opened ? false : null); // null：保存領域が使えない（起動時に案内済み）
     return new Promise(res => {
+      let trn = null;
       try {
-        const trn = this.db.transaction('sessions', 'readwrite');
-        fn(trn.objectStore('sessions'));
+        trn = this.db.transaction(stores, 'readwrite');
         trn.oncomplete = () => res(true);
         trn.onerror = trn.onabort = () => res(false);
-      } catch (e){ res(false); }
+        fn(trn);
+      } catch (e){ try { if (trn) trn.abort(); } catch (e2) {} res(false); }
     });
   },
-  put(s){ return this.write(st => st.put(s)).then(ok => { if (ok === false) showBanner(tx('saveFailBanner')); return !!ok; }); },
-  del(id){ return this.write(st => st.delete(id)); },
-  all(){
-    if (!this.db) return Promise.resolve([]);
+  done(p){ return p.then(ok => { if (ok === false) showBanner(tx('saveFailBanner')); return !!ok; }); },
+  // 書き込みは順番に処理する（同じ記録への追記が重ならないように）
+  serial(fn){ const p = this.q.then(fn); this.q = p.catch(() => {}); return p; },
+  saveMeta(s){ return this.serial(() => this.done(this.write(['sessions'], t => t.objectStore('sessions').put(stripSess(s))))); },
+  append(s){
+    return this.serial(() => {
+      const from = s._saved || { p: 0, g: 0 }, seq = s._seq || 0, pEnd = s.points.length, gEnd = (s.gs || []).length;
+      const pts = s.points.slice(from.p, pEnd), gs = (s.gs || []).slice(from.g, gEnd), has = pts.length || gs.length;
+      return this.done(this.write(['sessions', 'chunks'], t => {
+        if (has) t.objectStore('chunks').put({ sid: s.id, seq, points: pts, gs });
+        t.objectStore('sessions').put(stripSess(s));
+      })).then(ok => { if (ok && has){ s._seq = seq + 1; s._saved = { p: pEnd, g: gEnd }; } return ok; });
+    });
+  },
+  putFull(s){
+    return this.serial(() => this.done(this.write(['sessions', 'chunks'], t => {
+      const cs = t.objectStore('chunks');
+      cs.delete(IDBKeyRange.bound([s.id, -Infinity], [s.id, Infinity]));
+      cs.put({ sid: s.id, seq: 0, points: s.points, gs: s.gs || [] });
+      t.objectStore('sessions').put(stripSess(s));
+    })).then(ok => { if (ok){ s._seq = 1; s._saved = { p: s.points.length, g: (s.gs || []).length }; } return ok; }));
+  },
+  del(id){
+    return this.serial(() => this.done(this.write(['sessions', 'chunks'], t => {
+      t.objectStore('sessions').delete(id);
+      t.objectStore('chunks').delete(IDBKeyRange.bound([id, -Infinity], [id, Infinity]));
+    })));
+  },
+  getAll(store){
     return new Promise((res, rej) => {
-      const r = this.db.transaction('sessions', 'readonly').objectStore('sessions').getAll();
+      const r = this.db.transaction(store, 'readonly').objectStore(store).getAll();
       r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error);
     });
-  }
+  },
+  async loadAll(){
+    if (!this.db) return [];
+    const [metas, chunks] = await Promise.all([this.getAll('sessions'), this.getAll('chunks')]);
+    const by = new Map(metas.map(m => [m.id, Object.assign(m, { points: [], gs: m.vehicle && m.vehicle.type === 'car' ? [] : undefined, _seq: 0 })]));
+    chunks.sort((a, b) => a.seq - b.seq);
+    for (const c of chunks){
+      const s = by.get(c.sid); if (!s) continue;
+      for (const q of c.points) s.points.push(q);
+      if (c.gs && c.gs.length){ if (!s.gs) s.gs = []; for (const g of c.gs) s.gs.push(g); }
+      s._seq = c.seq + 1;
+    }
+    for (const s of by.values()){ if (s.gs === undefined) delete s.gs; s._saved = { p: s.points.length, g: (s.gs || []).length }; }
+    return [...by.values()];
+  },
+  backups(){ return this.db ? this.getAll('backups') : Promise.resolve([]); }
 };
 function showBanner(msg){ const b = $('#banner'); b.textContent = msg; b.hidden = false; }
 
-const DEFAULT_OPT = { minLap: 30, maxAcc: 20, mode: 'circuit', dragDist: [200, 400], courseCircuit: null, courseSegment: null,
+const CONSENT_VER = 1;
+let consentNow = false;
+const consented = () => consentNow || LS.get('consent', 0) >= CONSENT_VER;
+const DEFAULT_OPT = { minLap: 30, maxAcc: 20, mode: 'circuit', unit: 'kmh', hc: false, cb: false, dragDist: [200, 400], courseCircuit: null, courseSegment: null,
   lang: (navigator.language || 'ja').toLowerCase().startsWith('ja') ? 'ja' : 'en' };
-let settings = Object.assign({}, DEFAULT_OPT, LS.get('ll.settings', {}));
-const saveSettings = () => LS.set('ll.settings', settings);
+let settings = Object.assign({}, DEFAULT_OPT, LS.get('settings', {}));
+const saveSettings = () => LS.set('settings', settings);
 function tx(k, ...a){
   const d = I18N[settings.lang] || I18N.ja, v = k in d ? d[k] : (k in I18N.ja ? I18N.ja[k] : k);
   return typeof v === 'function' ? v(...a) : v;
@@ -528,9 +705,10 @@ function tx(k, ...a){
 const newLine = () => ({ c: null, hdg: null, w: 30 });
 function migrateCourse(c){
   if (!c.type) c.type = 'circuit';
-  c.lines = (c.lines || []).map(l => {
-    if (l && ('c' in l || 'hdg' in l)) return { c: ptOk(l.c) ? { lat: l.c.lat, lon: l.c.lon } : null, hdg: num(l.hdg) ? l.hdg : null, w: l.w > 0 ? l.w : 30 };
-    if (l && ptOk(l.a) && ptOk(l.b)){ // 旧形式（両端の2点）
+  if (c.type !== 'segment') c.type = 'circuit';
+  c.lines = (Array.isArray(c.lines) ? c.lines : []).map(l => {
+    if (l && typeof l === 'object' && ('c' in l || 'hdg' in l)) return { c: ptOk(l.c) ? { lat: l.c.lat, lon: l.c.lon } : null, hdg: num(l.hdg) ? l.hdg : null, w: num(l.w) && l.w > 0 ? Math.min(200, l.w) : 30 };
+    if (l && typeof l === 'object' && ptOk(l.a) && ptOk(l.b)){ // 旧形式（両端の2点）
       const pr = makeProj(l.a.lat, l.a.lon), b = pr(l.b);
       return { c: pr.inv({ x: b.x / 2, y: b.y / 2 }), hdg: ((Math.atan2(b.x, b.y) / D2R + 90) % 360 + 360) % 360, w: Math.round(Math.hypot(b.x, b.y) + 30) };
     }
@@ -540,17 +718,17 @@ function migrateCourse(c){
   if (c.type === 'segment' && c.lines.length < 2) c.lines.push(newLine());
   return c;
 }
-let courses = LS.get('ll.courses', null);
+let courses = LS.get('courses', null);
 if (!Array.isArray(courses) || !courses.length)
   courses = [{ id: 'c' + Date.now(), name: settings.lang === 'ja' ? '鈴鹿ツインサーキット' : 'Suzuka Twin Circuit', type: 'circuit', lines: [newLine()] }];
 courses.forEach(migrateCourse);
-let vehicles = LS.get('ll.vehicles', null);
+let vehicles = LS.get('vehicles', null);
 if (!Array.isArray(vehicles) || !vehicles.length)
   vehicles = [{ id: 'v' + Date.now(), name: 'CBR600RR (PC40)', type: 'bike', cal: null, flipF: false, flipL: false }];
-let vehicleId = LS.get('ll.vehicleId', vehicles[0].id);
+let vehicleId = LS.get('vehicleId', vehicles[0].id);
 let sessions = [];
-const saveCourses = () => LS.set('ll.courses', courses);
-const saveVehicles = () => { LS.set('ll.vehicles', vehicles); LS.set('ll.vehicleId', vehicleId); };
+const saveCourses = () => LS.set('courses', courses);
+const saveVehicles = () => { LS.set('vehicles', vehicles); LS.set('vehicleId', vehicleId); };
 const curVehicle = () => vehicles.find(v => v.id === vehicleId) || vehicles[0];
 const vehSnap = v => ({ id: v.id, name: v.name, type: v.type, flipF: !!v.flipF, flipL: !!v.flipL });
 const courseById = id => courses.find(c => c.id === id);
@@ -684,6 +862,8 @@ class LapDetector {
 class DragDetector {
   constructor(opt){
     this.dists = ((opt && opt.dragDist && opt.dragDist.length) ? opt.dragDist : [200, 400]).slice().sort((a, b) => a - b);
+    this.unit = opt && opt.unit === 'mph' ? 'mph' : 'km/h';
+    this.spds = spdTargets(this.unit); this.k = this.unit === 'mph' ? MPH : KMH;
     this.state = 'wait'; this.still = null; this.rest = null; this.cur = null; this.laps = [];
   }
   push(p){
@@ -718,8 +898,8 @@ class DragDetector {
       c.times[D] = t - c.start; c.vAt[D] = a.v + f * (p.v - a.v);
       ev.push({ type: 'mark', d: D, time: c.times[D], v: c.vAt[D] });
     }
-    for (const S of DRAG_SPDS){
-      const sv = S / 3.6;
+    for (const S of this.spds){
+      const sv = S / this.k;
       if (c.spd[S] != null || p.v < sv || a.v >= sv) continue;
       c.spd[S] = a.t + (sv - a.v) / ((p.v - a.v) || 1) * dt - c.start;
       ev.push({ type: 'spd', s: S, time: c.spd[S] });
@@ -731,19 +911,21 @@ class DragDetector {
   _finish(ev){
     const c = this.cur, l = c.last;
     const run = { kind: 'run', n: c.n, start: c.start, end: l.t, time: l.t - c.start, sll: c.sll, sv: 0, ell: { lat: l.lat, lon: l.lon }, ev: l.v,
-      times: c.times, vAt: c.vAt, spd: c.spd, maxV: c.maxV, dist: c.dist, warn: c.warn, splits: [] };
+      times: c.times, vAt: c.vAt, spd: c.spd, spdUnit: this.unit, maxV: c.maxV, dist: c.dist, warn: c.warn, splits: [] };
     this.laps.push(run); this.cur = null; this.state = 'wait'; this.still = null;
     ev.push({ type: 'finish', run });
   }
 }
-const stripLap = l => ({ n: l.n, time: l.time, splits: l.splits || [], warn: !!l.warn, times: l.times, spd: l.spd, maxV: l.maxV });
+const stripLap = l => ({ n: l.n, time: l.time, splits: l.splits || [], warn: !!l.warn, excl: !!l.excl, times: l.times, spd: l.spd, spdUnit: l.spdUnit, maxV: l.maxV });
+// 除外は開始時刻で覚える（再計算で時刻が少しずれても、3秒以内なら同じラップとみなす）
+const isExcl = (s, l) => (s.excluded || []).some(t => Math.abs(t - l.start) < 3000);
 function bestFor(vehId, course){
   const key = courseKey(course), sp = new Array(nSecOf(course)).fill(null);
   let lap = null;
   for (const s of sessions){
     if (s.mode === 'drag' || !s.vehicle || s.vehicle.id !== vehId || !s.course || courseKey(s.course) !== key) continue;
     for (const l of s.laps || []){
-      if (l.warn) continue;
+      if (l.warn || l.excl) continue;
       if (lap == null || l.time < lap) lap = l.time;
       (l.splits || []).forEach((v, k) => { if (v != null && (sp[k] == null || v < sp[k])) sp[k] = v; });
     }
@@ -755,9 +937,9 @@ function dragBest(vehId){
   for (const s of sessions){
     if (s.mode !== 'drag' || !s.vehicle || s.vehicle.id !== vehId) continue;
     for (const r of s.laps || []){
-      if (r.warn) continue;
+      if (r.warn || r.excl) continue;
       for (const [k, v] of Object.entries(r.times || {})) if (times[k] == null || v < times[k]) times[k] = v;
-      for (const [k, v] of Object.entries(r.spd || {})) if (spd[k] == null || v < spd[k]) spd[k] = v;
+      for (const [k, v] of Object.entries(r.spd || {})){ const key = (r.spdUnit || 'km/h') + ':' + k; if (spd[key] == null || v < spd[key]) spd[key] = v; }
     }
   }
   return { times, spd };
@@ -916,8 +1098,12 @@ function drawCourseLines(ctx, f, course, proj, selIdx){
     }
   });
 }
-const seqColor = r => `hsl(${240 - 240 * Math.min(1, Math.max(0, r))},100%,55%)`;
-const SEQ_GRAD = 'linear-gradient(90deg,hsl(240,100%,55%),hsl(180,100%,55%),hsl(120,100%,55%),hsl(60,100%,55%),hsl(0,100%,55%))';
+// 標準は青→赤の虹色。色覚に配慮した配色では、青→黄（明るさも変わる）にする
+const clamp01 = r => Math.min(1, Math.max(0, r));
+const seqColor = r => settings.cb ? `hsl(${225 - 170 * clamp01(r)},85%,${40 + 25 * clamp01(r)}%)` : `hsl(${240 - 240 * clamp01(r)},100%,55%)`;
+const SEQ_GRAD = () => `linear-gradient(90deg,${[0, .25, .5, .75, 1].map(seqColor).join(',')})`;
+const lonHue = v => settings.cb ? (v < 0 ? 28 : 210) : (v < 0 ? 0 : 130);
+const labelCol = bad => settings.cb ? (bad ? '#b35a00' : '#1f5fae') : (bad ? '#c62828' : '#1b8a3a');
 function niceStep(range, n){
   const raw = range / n, p = 10 ** Math.floor(Math.log10(raw || 1)), m = raw / p;
   return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
@@ -968,6 +1154,7 @@ function analyze(s){
       if (z.t > L.end) A.pieces.push({ kind: 'in', n: 0, start: L.end, end: z.t, time: z.t - L.end, sll: L.ell, sv: L.ev, ell: z, ev: z.v, splits: [] });
     }
   }
+  for (const l of A.laps) l.excl = isExcl(s, l);
   if (!s.active) s.laps = A.laps.map(stripLap);
   anaCache.set(s.id, A);
   return A;
@@ -1005,7 +1192,7 @@ function lapStats(s, A, pc){
   } else {
     for (let i = 1; i < tr.length; i++){ const a = tr[i - 1], b = tr[i]; if (a.glon != null && b.glon != null) acc((a.glon + b.glon) / 2, (b.t - a.t) / 1000); }
   }
-  return (pc._st = { vmin: Math.min(...v) * 3.6, vmax: Math.max(...v) * 3.6, vavg: dist / (pc.time / 1000) * 3.6, brake, coast, hasG: hasData, dist });
+  return (pc._st = { vmin: Math.min(...v) * spdK(), vmax: Math.max(...v) * spdK(), vavg: dist / (pc.time / 1000) * spdK(), brake, coast, hasG: hasData, dist });
 }
 // 振れ幅が prom 以上の山と谷
 function zigzag(vals, prom){
@@ -1030,13 +1217,13 @@ function zigzag(vals, prom){
 }
 const pieceLabel = pc => pc.kind === 'out' ? tx('outLap') + '*' : pc.kind === 'in' ? tx('inLap') + '*' : pc.kind === 'run' ? tx('runN', pc.n) : tx('lapN', pc.n);
 const pieceColor = (pc, i) => PAL[i % PAL.length];
-function bestPiece(A){ return A.laps.filter(l => !l.warn).reduce((b, l) => (!b || l.time < b.time) ? l : b, null); }
+function bestPiece(A){ return A.laps.filter(l => !l.warn && !l.excl).reduce((b, l) => (!b || l.time < b.time) ? l : b, null); }
 function dragMain(s){ const ds = (s.settings && s.settings.dragDist && s.settings.dragDist.length) ? s.settings.dragDist : [400]; return Math.max(...ds); }
 function sessBest(s){
-  const ls = (s.laps || []).filter(l => !l.warn);
+  const ls = (s.laps || []).filter(l => !l.warn && !l.excl);
   if (s.mode === 'drag'){
     const D = dragMain(s), v = ls.map(l => l.times && l.times[D]).filter(x => x != null);
-    return v.length ? `${D}m ${fmtS(Math.min(...v))}` : '';
+    return v.length ? `${distLabel(D)} ${fmtS(Math.min(...v))}` : '';
   }
   return ls.length ? fmtLap(Math.min(...ls.map(l => l.time))) : '';
 }
@@ -1092,7 +1279,7 @@ function onPos(pos){
     p.v = sv != null ? sv : d / dt;
   } else if (sv != null) p.v = sv;
   pts.push(p);
-  $('#speed').textContent = Math.round(p.v * 3.6);
+  $('#speed').textContent = Math.round(p.v * spdK());
   if (rec.det){ const ev = rec.det.push(p); if (s.mode === 'drag') handleDrag(ev); else handleEvents(ev); }
   if (s.vehicle.type === 'bike' && pts.length >= 3){
     const g = g3(pts[pts.length - 3], pts[pts.length - 2], pts[pts.length - 1]);
@@ -1103,7 +1290,7 @@ function onPos(pos){
     }
   }
   const big = s.points.length > 5000 || (s.gs && s.gs.length > 30000); // 大きくなったら書き込みの間隔を延ばす
-  if (now - rec.lastSave > (big ? 30000 : 10000)){ rec.lastSave = now; s.laps = rec.det ? rec.det.laps.map(stripLap) : []; DB.put(s); }
+  if (now - rec.lastSave > (big ? 30000 : 10000)){ rec.lastSave = now; s.laps = rec.det ? rec.det.laps.map(stripLap) : []; DB.append(s); }
 }
 function onPosErr(e){
   if (e.code === 1) geo.denied = true;
@@ -1159,7 +1346,8 @@ function renderHome(){
       : `<option value="">${esc(tx('noCourseOpt'))}</option>`;
   };
   fill('#selCircuit', 'circuit'); fill('#selSegment', 'segment');
-  $('#dragChips').innerHTML = DRAG_DISTS.map(d => `<button data-d="${d}" class="${settings.dragDist.includes(d) ? 'on' : ''}">${d}m</button>`).join('');
+  $('#dragChips').innerHTML = DRAG_DISTS.map(d => `<button data-d="${d}" class="${settings.dragDist.includes(d) ? 'on' : ''}">${distLabel(d)}</button>`).join('');
+  $('#v-run [data-i18n=dragSpeeds]').textContent = tx('dragSpeeds');
   const v = curVehicle();
   $('#selVeh').innerHTML = vehicles.map(x => `<option value="${esc(x.id)}"${x.id === v.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
   const idx = Math.max(0, MODES.indexOf(settings.mode));
@@ -1167,6 +1355,9 @@ function renderHome(){
   const car = $('#carousel');
   if (car.clientWidth) car.scrollLeft = idx * (car.clientWidth + 12);
   homeNote();
+  const due = backupDue();
+  $('#dueBox').hidden = !due;
+  if (due) $('#dueText').textContent = LS.get('lastBackup', 0) ? tx('backupDue', due) : tx('backupDueNever');
   drawOutline($('#olCircuit'), selCourse('circuit'));
   drawOutline($('#olSegment'), selCourse('segment'));
   drawDragOutline($('#olDrag'));
@@ -1176,6 +1367,7 @@ function homeNote(){
   if (m === 'drag') msgs.push(tx('drag1hz'));
   else { const c = selCourse(m); const p = c ? courseProblem(c) : tx('noCourse'); if (p) msgs.push(p); }
   if (v.type === 'car' && !v.cal) msgs.push(tx('calNeeded'));
+  if (battery && !battery.charging && battery.level < 0.3) msgs.push(tx('lowBattery', Math.round(battery.level * 100)));
   if (!window.isSecureContext) msgs.push(tx('needHttps'));
   $('#homeNote').textContent = msgs.join(' ');
 }
@@ -1233,6 +1425,15 @@ $('#dragChips').addEventListener('click', e => {
 
 // ---------- 計測 ----------
 const rec = { on: false, session: null, det: null, wake: null, wakeHeld: false, wakeReq: false, lastSave: 0, startedAt: 0 };
+const LOCKP = 'lap-logger-rec' + NS_SUFFIX + ':';
+function holdRecLock(id){
+  if (!navigator.locks) return;
+  navigator.locks.request(LOCKP + id, () => new Promise(r => { rec.unlock = r; })).catch(() => {});
+}
+async function heldRecLocks(){
+  try { const q = navigator.locks ? await navigator.locks.query() : null; return new Set(((q && q.held) || []).map(l => l.name)); }
+  catch (e){ return new Set(); }
+}
 function setNote(msg, warn){ const el = $('#runNote'); el.textContent = msg || ''; el.className = 'note' + (warn ? ' warnText' : ''); }
 function flash(sel){ const el = $(sel); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1500); }
 function handleEvents(evs){
@@ -1271,10 +1472,10 @@ function handleDrag(evs){
     else if (e.type === 'start'){ live.lapStart = e.t; $('#lapNo').textContent = tx('dragRun'); $('#dragList').innerHTML = ''; $('#secTime').textContent = '--'; }
     else if (e.type === 'mark'){
       const b = pb.times[e.d], diff = b != null ? ` <span class="${e.time < b ? 'good' : 'bad'}">${fmtDiff(e.time - b)}</span>` : '';
-      $('#dragList').insertAdjacentHTML('beforeend', `<div>${esc(tx('dragRunLine', e.d, fmtS(e.time), Math.round(e.v * 3.6)))}${diff}</div>`);
+      $('#dragList').insertAdjacentHTML('beforeend', `<div>${esc(tx('dragRunLine', e.d, fmtS(e.time), Math.round(e.v * spdK())))}${diff}</div>`);
     } else if (e.type === 'spd'){
-      if (e.s === 100) $('#secTime').textContent = fmtS(e.time);
-      $('#dragList').insertAdjacentHTML('beforeend', `<div>${esc(tx('spdTime', e.s, fmtS(e.time)))}</div>`);
+      if (e.s === spdTargets(rec.session.settings.unit === 'mph' ? 'mph' : 'km/h')[0]) $('#secTime').textContent = fmtS(e.time);
+      $('#dragList').insertAdjacentHTML('beforeend', `<div>${esc(tx('spdTime', e.s, fmtS(e.time), U()))}</div>`);
     } else if (e.type === 'finish'){
       const r = e.run, tm = r.times[D], d = $('#lastDiff'), b = pb.times[D];
       live.lapStart = null;
@@ -1284,7 +1485,7 @@ function handleDrag(evs){
       else { d.textContent = (tm < b && !r.warn ? tx('bestBadge') + ' ' : '') + fmtDiff(tm - b); d.className = 'diff ' + (tm < b ? 'bestc' : 'bad'); }
       if (!r.warn){
         for (const [k, v] of Object.entries(r.times)) if (pb.times[k] == null || v < pb.times[k]) pb.times[k] = v;
-        for (const [k, v] of Object.entries(r.spd)) if (pb.spd[k] == null || v < pb.spd[k]) pb.spd[k] = v;
+        for (const [k, v] of Object.entries(r.spd)){ const key = r.spdUnit + ':' + k; if (pb.spd[key] == null || v < pb.spd[key]) pb.spd[key] = v; }
       }
       $('#bestLap').textContent = pb.times[D] != null ? fmtS(pb.times[D]) : '--';
       $('#lapNo').textContent = tx('dragDone');
@@ -1312,6 +1513,8 @@ async function wakeOn(){
 }
 async function startRec(){
   if (rec.on || !ready) return;
+  if (!consented()){ $('#consent').hidden = false; return; }
+  if ([...(await heldRecLocks())].some(n => n.startsWith(LOCKP))){ alert(tx('otherTab')); return; }
   if (!('geolocation' in navigator)){ alert(tx('noGeo')); return; }
   if (!window.isSecureContext){ alert(tx('needHttps')); return; }
   if (geo.denied){ // 設定で許可し直された場合に備えて、位置の取得をやり直す
@@ -1333,11 +1536,12 @@ async function startRec(){
   if (veh.type === 'car' && !veh.cal && !confirm(tx('calNeededConfirm'))) return;
   if (rec.on) return;
   const s = { id: 's' + Date.now(), startedAt: Date.now(), mode, vehicle: vehSnap(veh), course: course ? clone(course) : null,
-              settings: { minLap: settings.minLap, maxAcc: settings.maxAcc, dragDist: settings.dragDist.slice() }, points: [], laps: [], active: true };
+              settings: { minLap: settings.minLap, maxAcc: settings.maxAcc, dragDist: settings.dragDist.slice(), unit: settings.unit }, points: [], laps: [], active: true };
   if (veh.type === 'car') s.gs = [];
   rec.session = s; rec.on = true; rec.lastSave = rec.startedAt = Date.now();
   rec.det = mode === 'drag' ? new DragDetector(s.settings) : (courseProblem(s.course) ? null : new LapDetector(s.course, s.settings));
   sessions.unshift(s);
+  holdRecLock(s.id);
   Object.assign(live, { lapStart: null, err: false, gEma: null });
   Object.assign(gm, { trail: [], cur: null, max: veh.type === 'car' ? 30 : 6 });
   Object.assign(mo, { basis, f: 0, l: 0, lastT: 0, lastStore: 0, count: 0 });
@@ -1347,9 +1551,9 @@ async function startRec(){
   if (mode === 'drag'){
     live.dragMain = Math.max(...s.settings.dragDist); live.dragPb = dragBest(veh.id);
     $('#curLap').textContent = '0.00'; $('#lapNo').textContent = tx('dragStop');
-    $('#lblLast').textContent = `${tx('lastRun')}  ${live.dragMain}m`; $('#secLbl').textContent = '0-100km/h'; $('#cellSec').hidden = false;
+    $('#lblLast').textContent = `${tx('lastRun')}  ${distLabel(live.dragMain)}`; $('#secLbl').textContent = `0-${spdTargets()[0]}${U()}`; $('#cellSec').hidden = false;
     if (live.dragPb.times[live.dragMain] != null) $('#bestLap').textContent = fmtS(live.dragPb.times[live.dragMain]);
-    $('#runLabel').textContent = `${s.vehicle.name}・${tx('modeDrag')} ${s.settings.dragDist.join('/')}m`;
+    $('#runLabel').textContent = `${s.vehicle.name}・${tx('modeDrag')} ${s.settings.dragDist.map(distLabel).join('/')}`;
   } else {
     const pb = bestFor(veh.id, course);
     live.pbLap = pb.lap; live.pbSp = pb.sp.slice();
@@ -1360,14 +1564,14 @@ async function startRec(){
     $('#cellSec').hidden = nSecOf(course) < 2;
     $('#runLabel').textContent = `${s.vehicle.name}・${course.name}`;
   }
-  document.body.classList.add('recording');
+  document.body.classList.add('recording'); $('#updBar').hidden = true;
   $('#home').hidden = true; $('#live').hidden = false;
   if (curTab !== 'v-run') showTab('v-run');
   startGeo(); wakeOn();
   setNote(tx('recNote'));
   if (veh.type === 'car' && !basis){ $('#gLat').textContent = tx('noG'); $('#gLon').textContent = ''; }
   drawGMeter(true);
-  DB.put(s);
+  DB.append(s);
 }
 function stopRec(){
   if (!rec.on) return;
@@ -1376,13 +1580,13 @@ function stopRec(){
   if (rec.wake){ const w = rec.wake; rec.wake = null; rec.wakeHeld = false; w.release().catch(() => {}); }
   const s = rec.session;
   s.active = false; s.endedAt = Date.now();
+  if (rec.unlock){ rec.unlock(); rec.unlock = null; }
   anaCache.delete(s.id);
   analyze(s);
-  DB.put(s).then(ok => { $('#homeNote').textContent = ok ? tx('saved', 1) : tx('saveFail'); $('#homeNote').className = 'note' + (ok ? '' : ' warnText'); });
-  document.body.classList.remove('recording');
+  DB.append(s).then(ok => { homeNote(); const el = $('#homeNote'); el.textContent = (ok ? tx('saved', 1) : tx('saveFail')) + (el.textContent ? ' ' + el.textContent : ''); el.className = 'note' + (ok ? '' : ' warnText'); });
+  document.body.classList.remove('recording'); showUpdate();
   $('#home').hidden = false; $('#live').hidden = true; $('#wakeText').textContent = '';
   renderHome();
-  $('#homeNote').textContent = tx('saved', 1);
 }
 $('#startBtn').addEventListener('click', startRec);
 (() => {
@@ -1406,11 +1610,11 @@ setInterval(() => {
 document.addEventListener('visibilitychange', () => {
   if (!rec.on) return;
   if (document.visibilityState === 'visible'){ if (!rec.wakeHeld) wakeOn(); }
-  else { rec.session.laps = rec.det ? rec.det.laps.map(stripLap) : []; DB.put(rec.session); }
+  else { rec.session.laps = rec.det ? rec.det.laps.map(stripLap) : []; DB.append(rec.session); }
 });
 window.addEventListener('beforeunload', e => {
   if (!rec.on) return;
-  rec.session.laps = rec.det ? rec.det.laps.map(stripLap) : []; DB.put(rec.session);
+  rec.session.laps = rec.det ? rec.det.laps.map(stripLap) : []; DB.append(rec.session);
   e.preventDefault(); e.returnValue = '';
 });
 
@@ -1471,13 +1675,13 @@ function renderSess(){
     <div class="block">${esc(tx('statsGps', hz, pts.length, acc))}${s.gs ? '<br>' + esc(tx('statsG', s.gs.length)) : ''}`;
   if (!drag){
     if (!A.det) h += `<br><span class="warnText">${esc(courseProblem(s.course))}</span>`;
-    const ok = A.laps.filter(l => !l.warn), n = nSecOf(s.course), bs = [];
+    const ok = A.laps.filter(l => !l.warn && !l.excl), n = nSecOf(s.course), bs = [];
     for (let k = 0; k < n; k++){ const v = ok.map(l => l.splits[k]).filter(x => x != null); bs[k] = v.length ? Math.min(...v) : null; }
     if (n > 1 && bs.every(x => x != null)) h += `<br><b>${esc(tx('theo', fmtLap(bs.reduce((a, b) => a + b, 0))))}</b><br>${bs.map((v, k) => `${k + 1}) ${fmtSec(v)}`).join(', ')}`;
     if (s.vehicle && A.det){ const pb = bestFor(s.vehicle.id, s.course); if (pb.lap != null) h += `<br>${esc(tx('pbVehCourse', fmtLap(pb.lap)))}`; }
   } else if (s.vehicle){
     const pb = dragBest(s.vehicle.id), D = dragMain(s);
-    if (pb.times[D] != null) h += `<br>${esc(tx('pbVehDrag', `${D}m ${fmtS(pb.times[D])}`))}`;
+    if (pb.times[D] != null) h += `<br>${esc(tx('pbVehDrag', `${distLabel(D)} ${fmtS(pb.times[D])}`))}`;
   }
   h += '</div>';
   if (!A.pieces.length) h += `<p class="note">${esc(tx('noLapsYet'))}</p>`;
@@ -1486,17 +1690,18 @@ function renderSess(){
     let title, lines;
     if (drag){
       const D = dragMain(s);
-      title = `${pieceLabel(pc)}  ${pc.times[D] != null ? fmtS(pc.times[D]) + tx('sec') : ''}`;
-      lines = Object.keys(pc.times).map(d => tx('dragRunLine', d, fmtS(pc.times[d]), Math.round(pc.vAt[d] * 3.6)))
-        .concat(Object.keys(pc.spd).map(k => tx('spdTime', k, fmtS(pc.spd[k])))).concat([tx('maxSpd', Math.round(pc.maxV * 3.6))]);
+      title = `${pieceLabel(pc)}  ${pc.times[D] != null ? distLabel(D) + ' ' + fmtS(pc.times[D]) + tx('sec') : ''}`;
+      lines = Object.keys(pc.times).sort((a, b) => a - b).map(d => tx('dragRunLine', d, fmtS(pc.times[d]), Math.round(pc.vAt[d] * spdK())))
+        .concat(Object.keys(pc.spd).map(k => tx('spdTime', k, fmtS(pc.spd[k]), pc.spdUnit || 'km/h'))).concat([tx('maxSpd', Math.round(pc.maxV * spdK()))]);
     } else {
       title = `${pieceLabel(pc)}  ${fmtLap(pc.time)}`;
       lines = [tx('lapStat1', st.vmin.toFixed(1), st.vmax.toFixed(1), st.vavg.toFixed(1))];
       if (st.hasG) lines.push(tx('lapStat2', st.brake.toFixed(1), st.coast.toFixed(1)));
       if (pc.splits && pc.splits.length > 1) lines.push(pc.splits.map((v, k) => `S${k + 1} ${fmtSec(v)}`).join('  '));
     }
-    h += `<button class="lcard${pc === best ? ' best' : ''}" data-pi="${i}"><div class="lt">${esc(title)}${pc.warn ? '⚠' : ''}${pc === best ? ' <span class="bestc">★</span>' : ''}</div>
-      <div class="ls">${lines.map(esc).join('<br>')}</div><span class="det">${esc(tx('detail'))}</span></button>`;
+    const exable = pc.kind === 'lap' || pc.kind === 'run';
+    h += `<div class="lcard${pc === best ? ' best' : ''}${pc.excl ? ' excl' : ''}" data-pi="${i}" role="button" tabindex="0"><div class="lt">${esc(title)}${pc.warn ? '⚠' : ''}${pc === best ? ' <span class="bestc">★</span>' : ''}${pc.excl ? esc(tx('exclTag')) : ''}</div>
+      <div class="ls">${lines.map(esc).join('<br>')}</div><span class="det">${esc(tx('detail'))}</span>${exable ? `<button class="ex" data-ex="${i}">${esc(tx(pc.excl ? 'unexcl' : 'excl'))}</button>` : ''}</div>`;
   });
   h += `<p class="note">${esc(tx('statDef'))}</p>
     <button class="wide" data-sa="recalc">${esc(tx('recalc'))}</button>
@@ -1504,7 +1709,19 @@ function renderSess(){
     <div class="row eq"><button data-sa="csv">CSV</button><button data-sa="json">JSON</button><button data-sa="del" class="danger">${esc(tx('del'))}</button></div>`;
   $('#sBody').innerHTML = h;
 }
+$('#sBody').addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('lcard')){ e.preventDefault(); e.target.click(); }
+});
 $('#sBody').addEventListener('click', async e => {
+  const ex = e.target.closest('[data-ex]');
+  if (ex){
+    const s = sessById(recState.sid), pc = s && analyze(s).pieces[+ex.dataset.ex];
+    if (!pc) return;
+    const ts = (s.excluded || []).filter(t => Math.abs(t - pc.start) >= 3000);
+    s.excluded = pc.excl ? ts : ts.concat(pc.start);
+    anaCache.delete(s.id); analyze(s); DB.saveMeta(s); renderSess();
+    return;
+  }
   const card = e.target.closest('.lcard');
   if (card){ recState.pi = +card.dataset.pi; lv.cmpKey = null; lv.t = 0; goRec('lap', true); return; }
   const b = e.target.closest('[data-sa]'); if (!b) return;
@@ -1516,11 +1733,12 @@ $('#sBody').addEventListener('click', async e => {
     if (!c){ alert(tx('courseGone')); return; }
     if (autoHeadings(c, [s])) { if (confirm(tx('autoRecalcConfirm', 1))) recalcSession(s, false); }
   } else if (act === 'csv') exportCsv(s);
-  else if (act === 'json') download(`lap_${fileStamp(s.startedAt)}.json`, JSON.stringify(s), 'application/json');
+  else if (act === 'json') download(`lap_${fileStamp(s.startedAt)}.json`, JSON.stringify(exportSess(s)), 'application/json');
   else if (act === 'del'){
     if (s.active){ alert(tx('delActive')); return; }
     if (!confirm(tx('delConfirm', fmtDate(s.startedAt)))) return;
-    sessions = sessions.filter(x => x !== s); anaCache.delete(s.id); await DB.del(s.id);
+    if (DB.db && !(await DB.del(s.id))) return;
+    sessions = sessions.filter(x => x !== s); anaCache.delete(s.id);
     history.state && history.state.rec ? history.back() : goRec('list', false);
   }
 });
@@ -1529,7 +1747,7 @@ function recalcSession(s, ask){
   const v = s.vehicle && vehicles.find(x => x.id === s.vehicle.id);
   if (s.mode === 'drag'){
     if (ask && !confirm(tx('recalcDrag'))) return false;
-    s.settings = Object.assign({}, s.settings, { dragDist: settings.dragDist.slice() });
+    s.settings = Object.assign({}, s.settings, { dragDist: settings.dragDist.slice(), unit: settings.unit });
   } else {
     const c = courseById(s.course.id);
     if (!c){ alert(tx('courseGone')); return false; }
@@ -1539,7 +1757,7 @@ function recalcSession(s, ask){
   }
   if (v) s.vehicle = vehSnap(v);
   s.rev = (s.rev || 0) + 1;
-  analyze(s); DB.put(s);
+  analyze(s); DB.saveMeta(s);
   if (curTab === 'v-rec') renderRec();
   return true;
 }
@@ -1562,25 +1780,119 @@ function exportCsv(s){
 $('#impJson').addEventListener('click', () => $('#impFile').click());
 $('#impFile').addEventListener('change', async e => {
   const file = e.target.files[0]; e.target.value = '';
-  if (!file) return;
+  if (file) await importFile(file);
+});
+const MAX_IMPORT = 500 * 1024 * 1024;
+// 読み込んだ記録を検査して、このアプリの形にそろえる。使えないものは null
+function sanitizeSession(o){
+  if (!o || typeof o.id !== 'string' || !num(o.startedAt) || !Array.isArray(o.points)) return null;
+  const s = {};
+  for (const k of Object.keys(o)) if (k[0] !== '_') s[k] = o[k];
+  s.mode = MODES.includes(s.mode) ? s.mode : 'circuit';
+  if (s.mode !== 'drag'){ if (!s.course || !Array.isArray(s.course.lines)) return null; migrateCourse(s.course); s.course.name = String(s.course.name || tx('untitled')); }
+  s.points = s.points.filter(p => p && num(p.t) && num(p.lat) && num(p.lon) && num(p.v)).map(p => ({ t: p.t, lat: p.lat, lon: p.lon, v: p.v, acc: num(p.acc) ? p.acc : 0 }));
+  if (Array.isArray(s.gs)) s.gs = s.gs.filter(g => Array.isArray(g) && g.length === 3 && g.every(num)); else delete s.gs;
+  s.active = false;
+  if (!s.vehicle || typeof s.vehicle.id !== 'string') s.vehicle = vehSnap(curVehicle());
+  s.vehicle = { id: s.vehicle.id, name: String(s.vehicle.name || tx('untitled')), type: s.vehicle.type === 'car' ? 'car' : 'bike', flipF: !!s.vehicle.flipF, flipL: !!s.vehicle.flipL };
+  s.settings = Object.assign({}, DEFAULT_OPT, s.settings && typeof s.settings === 'object' ? s.settings : {});
+  s.settings.dragDist = (Array.isArray(s.settings.dragDist) ? s.settings.dragDist : []).filter(num);
+  if (!s.settings.dragDist.length) s.settings.dragDist = [400];
+  if (!num(s.settings.minLap)) s.settings.minLap = DEFAULT_OPT.minLap;
+  if (!num(s.settings.maxAcc)) s.settings.maxAcc = DEFAULT_OPT.maxAcc;
+  if (!Array.isArray(s.excluded)) delete s.excluded; else s.excluded = s.excluded.filter(num);
+  if (!Array.isArray(s.laps)) s.laps = [];
+  return s;
+}
+async function addSessions(list){
+  let n = 0;
+  for (const s of list){
+    const old = sessById(s.id);
+    if (old && old.active) continue;
+    analyze(s);
+    if (DB.db && !(await DB.putFull(s))) continue;
+    sessions = sessions.filter(x => x.id !== s.id); sessions.push(s);
+    anaCache.delete(s.id); analyze(s);
+    n++;
+  }
+  sessions.sort((a, b) => b.startedAt - a.startedAt);
+  return n;
+}
+async function importFile(file){
+  if (rec.on){ alert(tx('recalcActive')); return; }
+  if (file.size > MAX_IMPORT){ alert(tx('importTooBig')); return; }
   let o;
   try { o = JSON.parse(await file.text()); } catch (err){ alert(tx('importParse')); return; }
-  const okPt = p => p && num(p.t) && num(p.lat) && num(p.lon) && num(p.v);
-  if (!o || typeof o.id !== 'string' || !num(o.startedAt) || !Array.isArray(o.points)){ alert(tx('importBad')); return; }
-  o.mode = MODES.includes(o.mode) ? o.mode : 'circuit';
-  if (o.mode !== 'drag'){ if (!o.course || !Array.isArray(o.course.lines)){ alert(tx('importBad')); return; } migrateCourse(o.course); }
-  o.points = o.points.filter(okPt).map(p => Object.assign(p, { acc: num(p.acc) ? p.acc : 0 }));
-  o.active = false;
-  if (!o.vehicle || !o.vehicle.id) o.vehicle = vehSnap(curVehicle());
-  const old = sessById(o.id);
+  if (o && o.kind === 'backup' && o.app === 'lap-logger') return restoreBackup(o);
+  if (o && o.kind === 'course' && o.app === 'lap-logger' && o.course && Array.isArray(o.course.lines)){
+    const c = migrateCourse({ id: 'c' + Date.now(), name: String(o.course.name || tx('untitled')).slice(0, 80), type: o.course.type, lines: o.course.lines });
+    courses.push(c); saveCourses(); cv.id = c.id; cv.sel = 0;
+    alert(tx('courseImported', c.name));
+    showTab('v-course');
+    return;
+  }
+  const s = sanitizeSession(o);
+  if (!s){ alert(tx('importBad')); return; }
+  const old = sessById(s.id);
   if (old && old.active){ alert(tx('delActive')); return; }
   if (old && !confirm(tx('importDup'))) return;
-  sessions = sessions.filter(x => x.id !== o.id); sessions.push(o);
-  sessions.sort((a, b) => b.startedAt - a.startedAt);
-  anaCache.delete(o.id); analyze(o);
-  if (await DB.put(o)) alert(tx('importOk'));
-  renderRecList();
+  if (await addSessions([s])) alert(tx('importOk'));
+  renderTab();
+}
+
+// ---------- 全データのバックアップ ----------
+function buildBackup(){
+  return { app: 'lap-logger', kind: 'backup', schema: SCHEMA, version: APP_VERSION, exportedAt: Date.now(),
+    settings, courses, vehicles, sessions: sessions.filter(s => !s.active).map(exportSess) };
+}
+async function shareOrDownload(name, text, type){
+  try {
+    const f = new File([text], name, { type });
+    if (navigator.canShare && navigator.canShare({ files: [f] })){ await navigator.share({ files: [f], title: name }); return true; }
+  } catch (e){ if (e && e.name === 'AbortError') return false; }
+  download(name, text, type);
+  return true;
+}
+async function backupAll(){
+  const d = new Date(), name = `lap-logger-backup_${fileStamp(d.getTime())}.json`;
+  if (await shareOrDownload(name, JSON.stringify(buildBackup()), 'application/json')){
+    LS.set('lastBackup', Date.now()); renderTab();
+  }
+}
+async function restoreBackup(o){
+  const ss = (Array.isArray(o.sessions) ? o.sessions : []).map(sanitizeSession).filter(Boolean);
+  const cs = (Array.isArray(o.courses) ? o.courses : []).filter(c => c && typeof c.id === 'string').map(c => migrateCourse({ id: c.id, name: String(c.name || tx('untitled')), type: c.type, lines: c.lines }));
+  const vs = (Array.isArray(o.vehicles) ? o.vehicles : []).filter(v => v && typeof v.id === 'string')
+    .map(v => ({ id: v.id, name: String(v.name || tx('untitled')), type: v.type === 'car' ? 'car' : 'bike', cal: v.cal && Array.isArray(v.cal.g) && v.cal.g.length === 3 && v.cal.g.every(num) ? v.cal : null, flipF: !!v.flipF, flipL: !!v.flipL }));
+  if (!confirm(tx('restoreConfirm', ss.length, cs.length, vs.length))) return;
+  for (const c of cs){ courses = courses.filter(x => x.id !== c.id); courses.push(c); }
+  for (const v of vs){ vehicles = vehicles.filter(x => x.id !== v.id); vehicles.push(v); }
+  saveCourses(); saveVehicles();
+  const n = await addSessions(ss);
+  alert(tx('restoreDone', n));
+  renderTab();
+}
+async function renderBackups(){
+  const list = (await DB.backups()).sort((a, b) => b.at - a.at);
+  $('#autoBackups').innerHTML = list.length ? list.map(b => `<button class="wide" data-bk="${esc(b.id)}">${esc(tx('autoBackupItem', fmtDate(b.at), b.count))}</button>`).join('') : '';
+}
+$('#autoBackups').addEventListener('click', async e => {
+  const b = e.target.closest('[data-bk]'); if (!b) return;
+  const rec0 = (await DB.backups()).find(x => x.id === b.dataset.bk); if (!rec0) return;
+  const d = JSON.parse(rec0.data), snap = Array.isArray(d) ? { sessions: d } : d;
+  const data = { app: 'lap-logger', kind: 'backup', schema: 1, version: 'auto', exportedAt: rec0.at, settings,
+    courses: snap.courses || courses, vehicles: snap.vehicles || vehicles, sessions: snap.sessions || [] };
+  shareOrDownload(`lap-logger-auto-backup_${fileStamp(rec0.at)}.json`, JSON.stringify(data), 'application/json');
 });
+$('#backupBtn').addEventListener('click', backupAll);
+$('#restoreBtn').addEventListener('click', () => $('#impFile').click());
+// しばらくバックアップしていなければ、ホームで知らせる
+function backupDue(){
+  const last = LS.get('lastBackup', 0), newest = sessions.reduce((m, s) => Math.max(m, s.endedAt || s.startedAt), 0);
+  if (!newest || newest <= last) return 0;
+  const days = Math.floor((Date.now() - (last || newest)) / 86400000);
+  return (!last && sessions.length >= 3) || days >= 7 ? Math.max(days, 1) : 0;
+}
 
 // ---------- 1周の詳しい画面 ----------
 const lv = { s: null, A: null, pc: null, tr: null, cmp: null, ctr: null, cmpKey: null, t: 0, playing: false, rate: 1, raf: 0, L: {}, mode: 'v', ci: 0, cmpCi: 1 };
@@ -1625,7 +1937,7 @@ function renderLapView(){
   lvUpdate();
 }
 function mapVal(p, mode){
-  if (mode === 'v') return p.v * 3.6;
+  if (mode === 'v') return p.v * spdK();
   if (p.glat == null || p.glon == null) return null;
   return mode === 'lat' ? Math.abs(p.glat) : mode === 'lon' ? p.glon : Math.hypot(p.glat, p.glon);
 }
@@ -1644,7 +1956,7 @@ function buildLapLayers(){
     for (let i = 1; i < tr.length; i++){
       const a = vals[i - 1], b = vals[i];
       if (a == null || b == null){ ctx.strokeStyle = '#555'; }
-      else if (mode === 'lon'){ const v = (a + b) / 2, r = Math.min(1, Math.abs(v) / hi); ctx.strokeStyle = `hsl(${v < 0 ? 0 : 130},100%,${Math.round(90 - 40 * r)}%)`; }
+      else if (mode === 'lon'){ const v = (a + b) / 2, r = Math.min(1, Math.abs(v) / hi); ctx.strokeStyle = `hsl(${lonHue(v)},100%,${Math.round(90 - 40 * r)}%)`; }
       else ctx.strokeStyle = seqColor(hi > lo ? ((a + b) / 2 - lo) / (hi - lo) : .5);
       ctx.beginPath(); ctx.moveTo(...f(tr[i - 1])); ctx.lineTo(...f(tr[i])); ctx.stroke();
     }
@@ -1664,7 +1976,7 @@ function buildLapLayers(){
       if (placed.some(q => Math.abs(q[0] - bx) < tw && Math.abs(q[1] - by) < 18)) continue;
       placed.push([bx, by]);
       const isMin = e.type === 'min';
-      ctx.fillStyle = mode === 'v' ? (isMin ? '#c62828' : '#1b8a3a') : mode === 'lon' ? (v < 0 ? '#c62828' : '#1b8a3a') : '#7b2cbf';
+      ctx.fillStyle = mode === 'v' ? labelCol(isMin) : mode === 'lon' ? labelCol(v < 0) : '#7b2cbf';
       ctx.fillRect(bx, by, tw, 18);
       ctx.fillStyle = '#fff'; ctx.fillText(txt, bx + 4, by + 13);
     }
@@ -1673,20 +1985,20 @@ function buildLapLayers(){
   const lg = $('#lMapLegend'), info = lv.L.map ? lv.L.map.info : null;
   if (!info) lg.textContent = '';
   else if (mode !== 'v' && !g) lg.textContent = tx('noGData');
-  else if (mode === 'v') lg.innerHTML = `${Math.round(info.lo)} km/h<span class="grad" style="background:${SEQ_GRAD}"></span>${Math.round(info.hi)} km/h`;
-  else if (mode === 'lon') lg.innerHTML = `${esc(tx('brake'))} ${info.hi.toFixed(2)}G<span class="grad" style="background:linear-gradient(90deg,hsl(0,100%,50%),hsl(0,100%,90%) 50%,hsl(130,100%,90%) 50%,hsl(130,100%,50%))"></span>${esc(tx('accel'))} ${info.hi.toFixed(2)}G`;
-  else lg.innerHTML = `${info.lo.toFixed(2)}G<span class="grad" style="background:${SEQ_GRAD}"></span>${info.hi.toFixed(2)}G`;
+  else if (mode === 'v') lg.innerHTML = `${Math.round(info.lo)} ${U()}<span class="grad" style="background:${SEQ_GRAD()}"></span>${Math.round(info.hi)} ${U()}`;
+  else if (mode === 'lon') lg.innerHTML = `${esc(tx('brake'))} ${info.hi.toFixed(2)}G<span class="grad" style="background:linear-gradient(90deg,hsl(${lonHue(-1)},100%,50%),hsl(${lonHue(-1)},100%,90%) 50%,hsl(${lonHue(1)},100%,90%) 50%,hsl(${lonHue(1)},100%,50%))"></span>${esc(tx('accel'))} ${info.hi.toFixed(2)}G`;
+  else lg.innerHTML = `${info.lo.toFixed(2)}G<span class="grad" style="background:${SEQ_GRAD()}"></span>${info.hi.toFixed(2)}G`;
   if (ctr) lg.insertAdjacentHTML('beforeend', ` <span><span class="sw" style="background:${colB}"></span>${esc(pieceLabel(cmp))}</span>`);
   // 速度
   const LA = tr[tr.length - 1].d || 1, LB = ctr ? (ctr[ctr.length - 1].d || 1) : 1;
   const box = { L: 36, B: 22, T: 8, Rr: 8 };
   lv.L.spd = makeLayer($('#lSpd'), 220, (ctx, w, h) => {
-    const maxV = Math.ceil(Math.max(...tr.concat(ctr || []).map(p => p.v * 3.6)) / 50) * 50 || 50, pw = w - box.L - box.Rr, ph = h - box.T - box.B;
+    const maxV = Math.ceil(Math.max(...tr.concat(ctr || []).map(p => p.v * spdK())) / 50) * 50 || 50, pw = w - box.L - box.Rr, ph = h - box.T - box.B;
     const X = d => box.L + d / LA * pw, Y = v => box.T + ph - v / maxV * ph, ticks = [];
     for (let v = 0; v <= maxV; v += 50) ticks.push([v, Y(v)]);
     drawAxes(ctx, w, h, box, LA, ticks, v => v);
-    if (ctr){ ctx.strokeStyle = colB; ctx.lineWidth = 1.5; ctx.beginPath(); ctr.forEach((p, i) => { const x = X(p.d * LA / LB), y = Y(p.v * 3.6); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); }
-    ctx.strokeStyle = colA; ctx.lineWidth = 2.5; ctx.beginPath(); tr.forEach((p, i) => i ? ctx.lineTo(X(p.d), Y(p.v * 3.6)) : ctx.moveTo(X(p.d), Y(p.v * 3.6))); ctx.stroke();
+    if (ctr){ ctx.strokeStyle = colB; ctx.lineWidth = 1.5; ctx.beginPath(); ctr.forEach((p, i) => { const x = X(p.d * LA / LB), y = Y(p.v * spdK()); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); }
+    ctx.strokeStyle = colA; ctx.lineWidth = 2.5; ctx.beginPath(); tr.forEach((p, i) => i ? ctx.lineTo(X(p.d), Y(p.v * spdK())) : ctx.moveTo(X(p.d), Y(p.v * spdK()))); ctx.stroke();
     return { X, pw };
   });
   $('#lSpdLegend').innerHTML = `<span><span class="sw" style="background:${colA}"></span>${esc(pieceLabel(pc))}</span>` + (cmp ? `<span><span class="sw" style="background:${colB}"></span>${esc(pieceLabel(cmp))}</span>` : '');
@@ -1740,7 +2052,7 @@ function lvUpdate(){
   const i = P.i, a = tr[Math.max(0, i)], b = tr[Math.min(tr.length - 1, i + 1)], hdg = ((bearing(a, b) / D2R) + 360) % 360;
   let sec = '-';
   if (pc.splits && pc.splits.length > 1){ let acc = 0; sec = String(pc.splits.length); for (let k = 0; k < pc.splits.length; k++){ if (pc.splits[k] == null) { sec = '-'; break; } acc += pc.splits[k]; if (lv.t <= acc){ sec = String(k + 1); break; } } }
-  const cells = [[tx('rdTime'), s.mode === 'drag' ? fmtS(lv.t) : fmtLap(lv.t)], [tx('rdSpeed'), `${(P.v * 3.6).toFixed(1)} km/h`]];
+  const cells = [[tx('rdTime'), s.mode === 'drag' ? fmtS(lv.t) : fmtLap(lv.t)], [tx('rdSpeed'), `${(P.v * spdK()).toFixed(1)} ${U()}`]];
   if (ctr){
     const LA = tr[tr.length - 1].d || 1, LB = ctr[ctr.length - 1].d || 1;
     const dl = (timeAtD(tr, P.d) - pc.start) - (timeAtD(ctr, P.d * LB / LA) - cmp.start);
@@ -1754,7 +2066,7 @@ function lvUpdate(){
   if (L.map) L.map.frame((c, info) => {
     if (Q){ const [qx, qy] = info.f(Q); c.fillStyle = PAL[1]; c.beginPath(); c.arc(qx, qy, 6, 0, 2 * Math.PI); c.fill(); }
     const [x, y] = info.f(P); c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 2; c.beginPath(); c.arc(x, y, 8, 0, 2 * Math.PI); c.fill(); c.stroke();
-    const label = `${(P.v * 3.6).toFixed(1)} km/h`; c.font = 'bold 13px system-ui';
+    const label = `${(P.v * spdK()).toFixed(1)} ${U()}`; c.font = 'bold 13px system-ui';
     const tw = c.measureText(label).width + 10, bx = Math.min(L.map.w - tw - 2, Math.max(2, x - tw / 2)), by = Math.max(2, y - 34);
     c.fillStyle = 'rgba(0,0,0,.75)'; c.fillRect(bx, by, tw, 20); c.fillStyle = '#fff'; c.fillText(label, bx + 5, by + 14);
   });
@@ -2013,6 +2325,12 @@ $('#cAddLine').addEventListener('click', () => {
   else { c.lines.push(newLine()); cv.sel = c.lines.length - 1; }
   saveCourses(); renderCourseTab();
 });
+$('#cShare').addEventListener('click', () => {
+  const c = editCourse();
+  const data = { app: 'lap-logger', kind: 'course', version: APP_VERSION, course: { name: c.name, type: c.type, lines: c.lines } };
+  shareOrDownload(`lap-logger-course_${c.name.replace(/[\\/:*?"<>|\s]+/g, '_')}.json`, JSON.stringify(data), 'application/json');
+});
+$('#cImport').addEventListener('click', () => $('#impFile').click());
 $('#cDel').addEventListener('click', () => {
   if (courses.length < 2){ alert(tx('oneCourse')); return; }
   const c = editCourse();
@@ -2029,6 +2347,8 @@ $('#cAuto').addEventListener('click', () => {
 // ---------- 設定タブ ----------
 function renderSettings(){
   $$('#langSeg button').forEach(b => b.classList.toggle('on', b.dataset.l === settings.lang));
+  $$('#unitSeg button').forEach(b => b.classList.toggle('on', b.dataset.u === settings.unit));
+  $('#optHc').checked = !!settings.hc; $('#optCb').checked = !!settings.cb;
   const v = curVehicle();
   $('#vehSel').innerHTML = vehicles.map(x => `<option value="${esc(x.id)}"${x.id === v.id ? ' selected' : ''}>${esc(x.name)}（${esc(tx(x.type === 'car' ? 'car' : 'bike'))}）</option>`).join('');
   $('#vehName').value = v.name;
@@ -2038,7 +2358,39 @@ function renderSettings(){
   if (v.cal){ const b = makeBasis(v.cal); $('#calInfo').textContent = tx('calDone', fmtDate(v.cal.at), Math.round(Math.asin(Math.max(-1, Math.min(1, b.up[2]))) / D2R)); }
   else $('#calInfo').textContent = tx('calNot');
   $('#optMinLap').value = settings.minLap; $('#optAcc').value = settings.maxAcc;
+  const lb = LS.get('lastBackup', 0);
+  $('#lastBackup').textContent = lb ? tx('lastBackupAt', fmtDate(lb)) : tx('neverBackup');
+  $('#verInfo').textContent = tx('verInfo', APP_VERSION);
+  renderBackups();
 }
+function applyLook(){ document.body.classList.toggle('hc', !!settings.hc); document.body.classList.toggle('cb', !!settings.cb); }
+$('#unitSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; settings.unit = b.dataset.u; saveSettings(); anaCache.forEach(A => A.pieces.forEach(pc => delete pc._st)); applyLang(); renderTab(); });
+$('#optHc').addEventListener('change', e => { settings.hc = e.target.checked; saveSettings(); applyLook(); });
+$('#optCb').addEventListener('change', e => { settings.cb = e.target.checked; saveSettings(); applyLook(); });
+// 不具合の報告用。走行データや位置は入れない
+async function deviceInfo(){
+  const est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate().catch(() => null) : null;
+  const persisted = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted().catch(() => null) : null;
+  const mb = b => b == null ? '?' : (b / 1048576).toFixed(1) + 'MB';
+  return [
+    `Lap Logger ${APP_VERSION} (schema ${SCHEMA})`,
+    `UA: ${navigator.userAgent}`,
+    `lang: ${navigator.language} / app: ${settings.lang}, unit: ${settings.unit}, hc: ${!!settings.hc}, cb: ${!!settings.cb}`,
+    `screen: ${screen.width}x${screen.height} @${window.devicePixelRatio}, orientation: ${screenAngle()}`,
+    `standalone: ${matchMedia('(display-mode: standalone)').matches || !!navigator.standalone}, sw: ${!!(navigator.serviceWorker && navigator.serviceWorker.controller)}`,
+    `wakeLock: ${'wakeLock' in navigator}, motion: ${typeof DeviceMotionEvent !== 'undefined'}, locks: ${!!navigator.locks}`,
+    `storage: ${mb(est && est.usage)} / ${mb(est && est.quota)}, persisted: ${persisted}, db: ${!!DB.db}`,
+    `recordings: ${sessions.length}, tracks: ${courses.length}, vehicles: ${vehicles.length} (${vehicles.map(v => v.type).join(',')})`,
+    `gps: ${geo.denied ? 'denied' : live.lastFixAt ? 'ok ±' + Math.round(live.acc) + 'm' : 'none'}`
+  ].join('\n');
+}
+$('#copyInfo').addEventListener('click', async () => {
+  const t = await deviceInfo();
+  try { await navigator.clipboard.writeText(t); alert(tx('copied')); }
+  catch (e){ prompt(tx('copyManual'), t); }
+});
+$('#openIssues').addEventListener('click', () => { window.open('https://github.com/kiha81-png/lap-logger/issues/new', '_blank', 'noopener'); });
+$('#showConsent').addEventListener('click', () => { $('#consent').hidden = false; });
 $('#langSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; settings.lang = b.dataset.l; saveSettings(); applyLang(); renderTab(); });
 $('#vehSel').addEventListener('change', e => { vehicleId = e.target.value; saveVehicles(); renderSettings(); });
 $('#vehName').addEventListener('change', e => { curVehicle().name = e.target.value.trim() || tx('untitled'); saveVehicles(); renderSettings(); });
@@ -2094,16 +2446,18 @@ window.addEventListener('resize', () => {
   applyLang();
   try {
     await DB.open();
-    sessions = await DB.all();
+    sessions = await DB.loadAll();
   } catch (e){ showBanner(tx('dbFail')); }
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  const held = await heldRecLocks();
+  let otherRec = false;
   for (const s of sessions){
     let dirty = false;
-    if (s.active){ s.active = false; dirty = true; }                      // 前回、記録中に閉じられたもの
+    if (s.active){ if (held.has(LOCKP + s.id)) otherRec = true; else { s.active = false; dirty = true; } }                      // 前回、記録中に閉じられたもの
     if (!s.vehicle){ s.vehicle = vehSnap(vehicles[0]); dirty = true; }    // 車両の登録より前の記録
     if (!s.mode){ s.mode = 'circuit'; dirty = true; }
-    if (s.course && s.course.lines && (!s.course.type || s.course.lines.some(l => l && 'a' in l))){ migrateCourse(s.course); dirty = true; }
-    if (dirty) DB.put(s);
+    if (s.course && s.course.lines && (!s.course.type || s.course.lines.some(l => l && typeof l === 'object' && 'a' in l))){ migrateCourse(s.course); dirty = true; }
+    if (dirty) DB.saveMeta(s);
   }
   sessions.sort((a, b) => b.startedAt - a.startedAt);
   saveCourses();
@@ -2111,8 +2465,47 @@ window.addEventListener('resize', () => {
   $('#startBtn').disabled = false;
   applyLang();
   renderHome();
-  startGeo();
+  if (consented()) startGeo();
+  setupSW();
+  applyLook();
+  if (otherRec) showBanner(tx('otherTab'));
+  if (!consented()) $('#consent').hidden = false;
+  checkBattery();
 })();
+$('#consentOk').addEventListener('click', () => { consentNow = true; LS.set('consent', CONSENT_VER); $('#consent').hidden = true; startGeo(); });
+// 電池が少ないときは、ホームで知らせる（Android の Chrome など、対応しているブラウザだけ）
+let battery = null;
+function checkBattery(){
+  if (!navigator.getBattery) return;
+  navigator.getBattery().then(b => {
+    battery = b;
+    ['levelchange', 'chargingchange'].forEach(t => b.addEventListener(t, () => { if (curTab === 'v-run' && !rec.on) homeNote(); }));
+    if (curTab === 'v-run' && !rec.on) homeNote();
+  }).catch(() => {});
+}
+
+// ---------- オフライン（Service Worker）と更新 ----------
+let swWaiting = null;
+function showUpdate(){ if (swWaiting && !rec.on) $('#updBar').hidden = false; }
+function setupSW(){
+  if (!('serviceWorker' in navigator) || !window.isSecureContext || !/^https?:$/.test(location.protocol)) return;
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    const track = w => w && w.addEventListener('statechange', () => {
+      if (w.state === 'installed' && navigator.serviceWorker.controller){ swWaiting = w; showUpdate(); }
+    });
+    if (reg.waiting && navigator.serviceWorker.controller){ swWaiting = reg.waiting; showUpdate(); }
+    reg.addEventListener('updatefound', () => track(reg.installing));
+  }).catch(() => {});
+  let reloading = false;
+  // 計測中は読み込み直さない。更新は「更新」ボタンを押したときだけ
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading || rec.on) return;
+    reloading = true; location.reload();
+  });
+}
+$('#updBtn').addEventListener('click', () => { if (rec.on || !swWaiting) return; $('#updBar').hidden = true; swWaiting.postMessage('skip'); });
+$('#dueBtn').addEventListener('click', backupAll);
 </script>
 </body>
 </html>
