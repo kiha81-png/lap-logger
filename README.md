@@ -11,7 +11,7 @@ A GPS lap timer for track days that runs in your phone's browser. Works for moto
 
 ### できること
 - **計測モード**：サーキット（周回）、ドラッグ（停止からの加速。距離と速度のタイム）、セグメント（A地点からB地点）
-- **コース**：「記録だけ」で数周走り、その軌跡をタップしてラインを置けます（スタート/ゴールの自動配置も可）。Googleマップの座標を貼り付けても登録でき、向きは走った記録から自動で決めます。前後・左右・回転・幅の微調整ができます。ファイルで仲間と共有できます。
+- **コース**：「記録だけ」で数周走り、その軌跡をタップしてラインを置けます（スタート/ゴールの自動配置も可）。Googleマップの座標を貼り付けても登録でき、向きは走った記録から自動で決めます。前後・左右・回転・幅の微調整ができます。QRコード・リンク・ファイルで仲間と共有できます。
 - **Gメーター**：バイクはGPSから計算、車はスマホの加速度センサーで測ります。
 - **解析**：ラップの統計（速度、ブレーキと惰性の時間）、再生スライダー、地図への速度とGの表示、2ラップの比較（タイム差）、G-G図
 - **その他**：日本語／English、km/h／mph、横画面、屋外向けの高コントラスト表示、色覚に配慮した配色、オフラインでの起動
@@ -50,7 +50,7 @@ A GPS lap timer for track days that runs in your phone's browser. Works for moto
 
 ### Features
 - **Modes**: Circuit (laps), Drag (standing start; distance and speed times), Segment (point A to point B)
-- **Tracks**: drive a few laps in recording-only mode, then tap the driven path to place lines (or place the start/finish automatically). You can also paste coordinates from Google Maps; directions are set automatically from a recording. Fine-tune position, rotation and width. Share tracks as files.
+- **Tracks**: drive a few laps in recording-only mode, then tap the driven path to place lines (or place the start/finish automatically). You can also paste coordinates from Google Maps; directions are set automatically from a recording. Fine-tune position, rotation and width. Share tracks by QR code, link or file.
 - **G meter**: calculated from GPS for motorcycles, measured with the phone motion sensor for cars.
 - **Analysis**: lap stats (speed, brake and coast time), playback slider, speed/G on the map, two-lap comparison (time delta), G-G diagram
 - **Other**: Japanese/English, km/h/mph, landscape, high-contrast outdoor display, color-vision friendly colors, works offline
@@ -83,7 +83,7 @@ Use [Issues](https://github.com/kiha81-png/lap-logger/issues) and paste "Setting
 - `index.html` がアプリ本体、`sw.js` がオフライン対応、`manifest.webmanifest` がホーム画面用の設定です。
 - **更新するときは、`index.html` の `APP_VERSION` と `sw.js` の `VERSION` を同じ値に上げてください。**
 - 保存データの形を変えるときは、`SCHEMA` を上げ、`DB.open()` の `onupgradeneeded` に移行処理を書きます（移行前に `backups` へ控えを取ります）。
-- テスト：`python tests/run_tests.py`（Python と Playwright、Microsoft Edge が必要です）
+- テスト：`python tests/run_tests.py`（Python、`pip install playwright zxing-cpp pillow`、Microsoft Edge が必要です）
 - 公開前の実機確認：[`docs/DEVICE_TEST.md`](docs/DEVICE_TEST.md)
 
 ## License

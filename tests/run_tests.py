@@ -1,12 +1,14 @@
 """Lap Logger の自動テスト。
 
-必要なもの: Python 3、Playwright（pip install playwright）、Microsoft Edge。
+必要なもの: Python 3、Playwright と QR の読み取り（pip install playwright zxing-cpp pillow）、Microsoft Edge。
 使い方:    python tests/run_tests.py
 
 このリポジトリのフォルダだけを http://127.0.0.1:<空きポート>/lap-logger-test/ で配信し、
 Edge（画面なし）で開いて、合成した走行データで判定・保存・オフライン動作を確かめる。
 """
-import functools, http.server, json, os, socketserver, sys, threading, time
+import base64, functools, http.server, io, json, os, socketserver, sys, threading, time
+import zxingcpp
+from PIL import Image
 from playwright.sync_api import sync_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -239,6 +241,18 @@ TESTS = {
   const hint = tx('tapHint');
   return [!!r && tFind < 3000 && tDraw < 60 && typeof hint === 'string', { n: pts.length, tFind: Math.round(tFind), tDraw: Math.round(tDraw), hint: hint.slice(0, 12) }];
 }""",
+'hash_import_guard': """() => {
+  let threw = false;
+  history.replaceState(null, '', location.pathname + '#c=%E0%A4%A');
+  try { checkHashImport(); } catch (e){ threw = true; }
+  const gone = location.hash === '';
+  const c0 = courses[0], code = courseCode(c0);
+  rec.on = true; history.replaceState(null, '', location.pathname + '#c=' + code); checkHashImport();
+  const hiddenWhileRec = $('#impBox').hidden; rec.on = false; showImport();
+  const shownAfter = !$('#impBox').hidden; const n = courses.length; $('#impAdd').click();
+  const noDup = courses.length === n; showTab('v-run');
+  return [!threw && gone && hiddenWhileRec && shownAfter && noDup, { threw, gone, hiddenWhileRec, shownAfter, noDup }];
+}""",
 'escape': """() => {
   const evil = '<img src=x onerror=alert(1)>';
   return [esc(evil) === '&lt;img src=x onerror=alert(1)&gt;', esc(evil)];
@@ -304,6 +318,31 @@ def main():
         results['offline'] = [page.evaluate('ready === true'), 'loaded while offline']
         ctx.set_offline(False)
 
+        # コースの共有：QR を読み取ると共有リンクになり、それを開くと同じコースが追加される
+        page.evaluate(SETUP)
+        share = page.evaluate("""() => {
+          const c = migrateCourse({ id: 'cq', name: '共有<b>テスト</b>', type: 'circuit', lines: [
+            { c: toLL(0, 0), hdg: 90, w: 30 }, { c: toLL(400, 80), hdg: 180.5, w: 24 }, { c: toLL(200, 160), hdg: 270, w: 30 }, newLine()] });
+          courses.push(c); cv.id = c.id; showTab('v-course'); renderCourseTab();
+          $('#cShare').click();
+          const out = { url: shareUrl, png: $('#qrCv').toDataURL('image/png'), visible: !$('#shareBox').hidden, lines: JSON.stringify(c.lines) };
+          $('#qrClose').click(); courses = courses.filter(x => x !== c); cv.id = courses[0].id; saveCourses(); showTab('v-run');
+          return out;
+        }""")
+        img = Image.open(io.BytesIO(base64.b64decode(share['png'].split(',', 1)[1])))
+        rd = zxingcpp.read_barcodes(img)
+        qr_text = rd[0].text if rd else None
+        n0 = page.evaluate('courses.length')
+        page.goto(qr_text or url); waitjs(page, 'ready === true'); page.evaluate(SETUP)
+        got = page.evaluate("""() => { const shown = !$('#impBox').hidden, info = $('#impInfo').textContent, hashGone = location.hash === '';
+          $('#impAdd').click(); const c = courses[courses.length - 1];
+          return { shown, info, hashGone, n: courses.length, name: c.name, lines: c.lines.map(l => [l.c ? +l.c.lat.toFixed(6) : null, l.c ? +l.c.lon.toFixed(6) : null, l.hdg, l.w]) }; }""")
+        want = [[round(l['c']['lat'], 6) if l['c'] else None, round(l['c']['lon'], 6) if l['c'] else None, l['hdg'], l['w']] for l in json.loads(share['lines'])]
+        bad_codes = page.evaluate("""() => [parseCourseCode('LL1.@@@@'), parseCourseCode('LL1.' + btoa('{"l":[]}')), parseCourseCode('hello'), parseCourseCode('LL1.' + btoa(JSON.stringify({ n: 'x', l: [[999, 999, 1, 30]] })))].map(c => c ? (c.lines[0].c === null ? 'nullpt' : 'course') : null)""")
+        page.evaluate("() => { courses = courses.filter(c => c.name !== '共有<b>テスト</b>'); saveCourses(); }")
+        results['qr_share'] = [share['visible'] and qr_text == share['url'] and '#c=LL1.' in (qr_text or '') and got['shown'] and got['hashGone']
+                               and got['n'] == n0 + 1 and got['name'] == '共有<b>テスト</b>' and got['lines'] == want and bad_codes == [None, None, None, 'nullpt'],
+                               {'qr': (qr_text or '')[:60], 'url_len': len(share['url']), 'got': got, 'want': want, 'bad': bad_codes}]
         results['backup_roundtrip'] = [json.loads(backup)['kind'] == 'backup' and len(json.loads(backup)['sessions']) >= 1, len(json.loads(backup)['sessions'])]
         results['no_page_errors'] = [not errors, errors]
         b.close()
