@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0d10">
-<!-- 外部との通信をすべて禁止する（データはこの端末から出さない） -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; font-src 'none'; frame-src 'none'; worker-src 'self'; manifest-src 'self'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- 外部との通信は、設定で「Googleに保存」を使うときの Apps Script だけを許す（それ以外はこの端末から出さない） -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; connect-src https://script.google.com https://script.googleusercontent.com; font-src 'none'; frame-src 'none'; worker-src 'self'; manifest-src 'self'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -386,6 +386,15 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
   <div class="row eq"><button id="backupBtn" class="primary" data-i18n="backupBtn"></button><button id="restoreBtn" data-i18n="restoreBtn"></button></div>
   <h4 style="margin-top:14px" data-i18n="autoBackupTitle"></h4>
   <div id="autoBackups"></div>
+  <h3 data-i18n="gsTitle"></h3>
+  <p class="note" data-i18n="gsNote"></p>
+  <button id="gsGuide" class="wide" data-i18n="gsGuide"></button>
+  <label class="f"><span data-i18n="gsUrl"></span><input id="gsUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec"></label>
+  <label class="f"><span data-i18n="gsToken"></span><input id="gsToken" type="password" autocomplete="off" spellcheck="false"></label>
+  <label class="f"><span data-i18n="gsName"></span><input id="gsName" autocomplete="off" maxlength="40"></label>
+  <div class="row"><label class="chk"><input type="checkbox" id="gsAuto"><span data-i18n="gsAuto"></span></label></div>
+  <div class="row eq"><button id="gsTest" data-i18n="gsTest"></button><button id="gsSendAll" data-i18n="gsSendAll"></button></div>
+  <p class="note" id="gsStatus"></p>
   <h3 data-i18n="supportTitle"></h3>
   <p class="note" data-i18n="supportNote"></p>
   <div class="row eq"><button id="copyInfo" data-i18n="copyInfo"></button><button id="openIssues" data-i18n="openIssues"></button></div>
@@ -484,7 +493,7 @@ const I18N = {
     supportTitle: '不具合の報告', supportNote: '報告は GitHub の Issues で受け付けています（公開されます）。「端末情報をコピー」の内容を貼ってください。走行データや位置は含まれません。走行データ（JSON・CSV）は貼らないでください。',
     copyInfo: '端末情報をコピー', openIssues: '報告ページを開く', copied: 'コピーしました。', copyManual: 'この内容をコピーしてください：',
     consentTitle: 'ご利用の前に', consentOk: '内容を確認して、同意する', showConsent: '注意事項をもう一度読む',
-    consentBody: '<ul><li><b>走行中は、スマホを見たり操作したりしないでください。</b>安全な運転・走行を最優先にしてください。</li><li>スマホは、しっかり固定してください。固定は自己責任で行ってください。</li><li>このアプリは、サーキットなどの閉ざされた場所での使用を想定しています。公道では交通法規を守ってください。車載や計測が認められているかは、走行会やサーキットの規則で確認してください。</li><li>タイム・速度・Gは、スマホのGPSとセンサーから求めた<b>目安</b>です。公式の計時の代わりにはなりません。</li><li>記録中に画面を消したり、他のアプリに切り替えたりすると、記録が止まります。バッテリーの減りと発熱に注意してください。</li><li>データはこの端末の中だけに保存され、外部には送られません。大事な記録はバックアップしてください。</li><li>このアプリは無保証で提供されます（MITライセンス）。使用によって生じた損害について、作者は責任を負いません。</li></ul>',
+    consentBody: '<ul><li><b>走行中は、スマホを見たり操作したりしないでください。</b>安全な運転・走行を最優先にしてください。</li><li>スマホは、しっかり固定してください。固定は自己責任で行ってください。</li><li>このアプリは、サーキットなどの閉ざされた場所での使用を想定しています。公道では交通法規を守ってください。車載や計測が認められているかは、走行会やサーキットの規則で確認してください。</li><li>タイム・速度・Gは、スマホのGPSとセンサーから求めた<b>目安</b>です。公式の計時の代わりにはなりません。</li><li>記録中に画面を消したり、他のアプリに切り替えたりすると、記録が止まります。バッテリーの減りと発熱に注意してください。</li><li>データはこの端末の中だけに保存され、外部には送られません（設定の「Googleに保存」を自分でオンにした場合だけ、自分のGoogleスプレッドシート・ドライブに送ります）。大事な記録はバックアップしてください。</li><li>このアプリは無保証で提供されます（MITライセンス）。使用によって生じた損害について、作者は責任を負いません。</li></ul>',
     needConsent: '先に、注意事項を確認して同意してください。',
     display: '表示', optHc: '屋外向けの高コントラスト表示', optCb: '色覚に配慮した配色（青とオレンジ）',
     pitNote: 'ピットロードがラインの近くを通る場合は、幅を狭めてください（プレビューと拡大図で確かめられます）。',
@@ -503,7 +512,18 @@ const I18N = {
     otherTab: '別のタブ（またはホーム画面のアプリ）で記録中です。同時に2か所で計測しないでください。',
     importTooBig: 'ファイルが大きすぎます（500MBまで）。', restoreConfirm: (s, c, v) => `記録${s}件・コース${c}件・車両${v}件を復元します。同じものがあれば上書きします。よろしいですか？`,
     restoreDone: n => `${n}件の記録を復元しました。`, autoBackupItem: (d, n) => `${d} の自動バックアップ（記録${n}件）を書き出す`,
-    dataTitle: 'データ（バックアップと復元）', dataNote: '記録はこの端末の中だけに保存されます。機種変更や、ブラウザによる自動削除に備えて、ときどき全データをバックアップしてください。共有ボタンから、ファイルアプリやクラウドに保存できます。',
+    gsTitle: 'Googleに保存（スプレッドシート・ドライブ）',
+    gsNote: '走行を止めたあと、ラップ一覧を自分のスプレッドシートに、GPSの全データをドライブに自動で送ります。圏外のときは送信待ちに入れ、電波が戻ったら送ります。最初に、手順書のとおりスクリプトを用意してください。',
+    gsGuide: '準備の手順を開く', gsUrl: 'スクリプトのURL（…/exec）', gsToken: '合言葉', gsName: '名前（スプレッドシートに書く。空でも可）',
+    gsAuto: '走行を止めたら自動で送る', gsTest: '接続テスト', gsSendAll: '未送信をまとめて送る', gsSendOne: 'Googleに送る',
+    gsNotSet: 'Googleへの保存は未設定です。', gsBadUrl: 'URLか合言葉が正しくありません。URLは https://script.google.com/macros/s/…/exec の形です。',
+    gsQueueN: n => `送信待ち：${n}件。`, gsLast: d => `最後に送った日時：${d}`, gsTestOk: n => `つながりました（${n}）。`,
+    gsQWait: '送信待ちです（電波が戻ったら送ります）。', gsQErr: e => `送れていません：${e}`, gsSentAt: d => `Googleに送信済み（${d}）。`, gsChanged: '送ったあとに変更があります。',
+    gsErr_net: '通信できませんでした。電波が戻ったら自動でやり直します。', gsErr_server: 'スクリプトでエラーが出ました。しばらくしてやり直します。',
+    gsErr_token: '合言葉が違います。設定を確認してください。', gsErr_notoken: 'スクリプトの準備（setup の実行）が済んでいません。',
+    gsErr_reply: 'スクリプトの返事が読めません。URL（…/exec）と、公開範囲が「全員」になっているかを確認してください。', gsErr_bad: 'スクリプトが受け付けませんでした。スクリプトを最新にしてください。',
+    gsErr_big: '記録が大きすぎて送れません（約45MBまで）。JSONで書き出してください。',
+    dataTitle: 'データ（バックアップと復元）', dataNote: '記録はこの端末の中に保存されます。機種変更や、ブラウザによる自動削除に備えて、ときどき全データをバックアップしてください。共有ボタンから、ファイルアプリやクラウドに保存できます。',
     backupBtn: '全データをバックアップ', restoreBtn: 'バックアップから復元', backupNow: '今すぐバックアップ', autoBackupTitle: '自動バックアップ（データ形式を変えたときに作成）',
     lastBackupAt: d => `前回のバックアップ：${d}`, neverBackup: 'まだバックアップしていません。', backupDue: n => `前回のバックアップから${n}日以上たっています。`, backupDueNever: 'まだ一度もバックアップしていません。',
     updateAvail: '新しいバージョンがあります。', updateBtn: '更新', verInfo: v => `バージョン ${v}`,
@@ -590,7 +610,7 @@ ${m} of them belong to another track and will move to this track (their old resu
     supportTitle: 'Report a problem', supportNote: 'Reports are taken on GitHub Issues (public). Paste the result of "Copy device info" — it contains no driving data or locations. Do not paste driving data (JSON/CSV).',
     copyInfo: 'Copy device info', openIssues: 'Open the report page', copied: 'Copied.', copyManual: 'Copy this text:',
     consentTitle: 'Before you start', consentOk: 'I have read this and agree', showConsent: 'Read the safety notes again',
-    consentBody: '<ul><li><b>Do not look at or touch the phone while riding or driving.</b> Safety comes first.</li><li>Mount the phone securely, at your own responsibility.</li><li>This app is meant for closed venues such as race tracks. On public roads, obey traffic laws. Check the event or track rules on whether phone mounts and timing are allowed.</li><li>Times, speeds and G are <b>estimates</b> from the phone GPS and sensors. They are not official timing.</li><li>Turning off the screen or switching apps while recording stops the recording. Watch battery drain and heat.</li><li>Data is stored only on this device and is never sent anywhere. Back up important recordings.</li><li>This app is provided without warranty (MIT License). The author is not liable for any damage arising from its use.</li></ul>',
+    consentBody: '<ul><li><b>Do not look at or touch the phone while riding or driving.</b> Safety comes first.</li><li>Mount the phone securely, at your own responsibility.</li><li>This app is meant for closed venues such as race tracks. On public roads, obey traffic laws. Check the event or track rules on whether phone mounts and timing are allowed.</li><li>Times, speeds and G are <b>estimates</b> from the phone GPS and sensors. They are not official timing.</li><li>Turning off the screen or switching apps while recording stops the recording. Watch battery drain and heat.</li><li>Data is stored only on this device and is never sent anywhere (unless you turn on "Save to Google" in Settings, which sends it to your own Google Sheet and Drive). Back up important recordings.</li><li>This app is provided without warranty (MIT License). The author is not liable for any damage arising from its use.</li></ul>',
     needConsent: 'Please read and agree to the safety notes first.',
     display: 'Display', optHc: 'High-contrast outdoor display', optCb: 'Color-vision friendly colors (blue/orange)',
     pitNote: 'If the pit lane runs close to a line, make the line narrower (check it in the preview and zoom view).',
@@ -609,6 +629,17 @@ ${m} of them belong to another track and will move to this track (their old resu
     otherTab: 'Recording is in progress in another tab (or the home-screen app). Do not record in two places at once.',
     importTooBig: 'The file is too large (max 500 MB).', restoreConfirm: (s, c, v) => `Restore ${s} recordings, ${c} tracks and ${v} vehicles? Existing items with the same ID will be overwritten.`,
     restoreDone: n => `Restored ${n} recordings.`, autoBackupItem: (d, n) => `Export automatic backup from ${d} (${n} recordings)`,
+    gsTitle: 'Save to Google (Sheets & Drive)',
+    gsNote: 'After you stop recording, the lap list is sent to your own Google Sheet and the full GPS data to your Drive. With no signal, it waits and sends when you are back online. Set up the script first by following the guide.',
+    gsGuide: 'Open the setup guide', gsUrl: 'Script URL (…/exec)', gsToken: 'Passphrase', gsName: 'Name (written to the sheet, optional)',
+    gsAuto: 'Send automatically when I stop recording', gsTest: 'Test connection', gsSendAll: 'Send all unsent', gsSendOne: 'Send to Google',
+    gsNotSet: 'Saving to Google is not set up.', gsBadUrl: 'The URL or passphrase is not valid. The URL looks like https://script.google.com/macros/s/…/exec.',
+    gsQueueN: n => `Waiting to send: ${n}.`, gsLast: d => `Last sent: ${d}`, gsTestOk: n => `Connected (${n}).`,
+    gsQWait: 'Waiting to send (will send when online).', gsQErr: e => `Not sent: ${e}`, gsSentAt: d => `Sent to Google (${d}).`, gsChanged: ' Changed since it was sent.',
+    gsErr_net: 'Could not connect. It will retry when you are back online.', gsErr_server: 'The script reported an error. It will retry later.',
+    gsErr_token: 'Wrong passphrase. Check the settings.', gsErr_notoken: 'The script is not set up yet (run setup).',
+    gsErr_reply: 'Could not read the script reply. Check the URL (…/exec) and that access is set to "Anyone".', gsErr_bad: 'The script refused the data. Update the script.',
+    gsErr_big: 'This recording is too large to send (about 45 MB max). Export it as JSON instead.',
     dataTitle: 'Data (backup & restore)', dataNote: 'Recordings are stored only on this device. Back up all data now and then, in case you change phones or the browser clears site data. Use the share button to save to Files or cloud storage.',
     backupBtn: 'Back up all data', restoreBtn: 'Restore from backup', backupNow: 'Back up now', autoBackupTitle: 'Automatic backups (made when the data format changes)',
     lastBackupAt: d => `Last backup: ${d}`, neverBackup: 'No backup yet.', backupDue: n => `It has been ${n}+ days since your last backup.`, backupDueNever: 'You have never backed up.',
@@ -659,7 +690,7 @@ function parseLatLon(text){
 }
 
 // ---------- 保存 ----------
-const APP_VERSION = '4.3.0';
+const APP_VERSION = '4.4.0';
 const SCHEMA = 2;
 // github.io では同じユーザーのページ同士が保存領域を共有するので、公開URL以外（テスト用など）は名前を分ける
 const NS = location.pathname.replace(/[^/]*$/, '') || '/';
@@ -1865,7 +1896,7 @@ function stopRec(){
   anaCache.delete(s.id);
   analyze(s);
   const cleanup = () => { if (unlock) unlock(); setTimeout(() => rec.releasing.delete(LOCKP + s.id), 1000); };
-  DB.append(s).catch(() => false).then(ok => { cleanup(); if (ok) bcast({ type: 'rec-stop', id: s.id }); if (impC) setTimeout(showImport, 500); homeNote(); const el = $('#homeNote'); el.textContent = (ok ? tx('saved', 1) : tx('saveFail')) + (el.textContent ? ' ' + el.textContent : ''); el.className = 'note' + (ok ? '' : ' warnText'); });
+  DB.append(s).catch(() => false).then(ok => { cleanup(); if (ok){ bcast({ type: 'rec-stop', id: s.id }); gsAutoAfterStop(s.id); } if (impC) setTimeout(showImport, 500); homeNote(); const el = $('#homeNote'); el.textContent = (ok ? tx('saved', 1) : tx('saveFail')) + (el.textContent ? ' ' + el.textContent : ''); el.className = 'note' + (ok ? '' : ' warnText'); });
   document.body.classList.remove('recording'); showUpdate(); $('#lapFlash').hidden = true;
   $('#home').hidden = false; $('#live').hidden = true; $('#wakeText').textContent = '';
   renderHome();
@@ -1989,8 +2020,10 @@ function renderSess(){
   h += `<p class="note">${esc(tx('statDef'))}</p>
     <button class="wide" data-sa="recalc">${esc(tx('recalc'))}</button>
     ${drag ? '' : `<button class="wide" style="margin-top:8px" data-sa="auto">${esc(tx('autoFromThis'))}</button>`}
-    <div class="row eq"><button data-sa="csv">CSV</button><button data-sa="json">JSON</button><button data-sa="del" class="danger">${esc(tx('del'))}</button></div>`;
+    <div class="row eq"><button data-sa="csv">CSV</button><button data-sa="json">JSON</button><button data-sa="del" class="danger">${esc(tx('del'))}</button></div>
+    <button class="wide" style="margin-top:8px" data-sa="gs">${esc(tx('gsSendOne'))}</button><p class="note" id="gsSessNote"></p>`;
   $('#sBody').innerHTML = h;
+  renderGsSess();
 }
 $('#sBody').addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('lcard')){ e.preventDefault(); e.target.click(); }
@@ -2003,7 +2036,7 @@ $('#sBody').addEventListener('click', async e => {
     if (s.active){ alert(tx('recalcActive')); return; }
     const ts = (s.excluded || []).filter(t => Math.abs(t - pc.start) >= 3000);
     s.excluded = pc.excl ? ts : ts.concat(pc.start);
-    anaCache.delete(s.id); analyze(s); DB.saveMeta(s); renderSess();
+    anaCache.delete(s.id); analyze(s); DB.saveMeta(s); gsResend(s.id); renderSess();
     return;
   }
   const card = e.target.closest('.lcard');
@@ -2016,6 +2049,11 @@ $('#sBody').addEventListener('click', async e => {
     const c = courseById(s.course.id);
     if (!c){ alert(tx('courseGone')); return; }
     if (autoHeadings(c, [s])) { if (confirm(tx('autoRecalcConfirm', 1))) recalcSession(s, false); }
+  } else if (act === 'gs'){
+    if (s.active){ alert(tx('recalcActive')); return; }
+    if (!gsReady()){ alert(tx('gsNotSet')); return; }
+    LS.set('gsQueue', gsQueue().filter(q => q.id !== s.id).concat({ id: s.id, tries: 0, next: 0, err: '' }));
+    renderGsSess(); gsFlush(true);
   } else if (act === 'csv') exportCsv(s);
   else if (act === 'json') download(`lap_${fileStamp(s.startedAt)}.json`, JSON.stringify(exportSess(s)), 'application/json');
   else if (act === 'del'){
@@ -2042,7 +2080,7 @@ function recalcSession(s, ask, into){
   }
   if (v) s.vehicle = vehSnap(v);
   s.rev = (s.rev || 0) + 1;
-  analyze(s); DB.saveMeta(s);
+  analyze(s); DB.saveMeta(s); gsResend(s.id);
   if (curTab === 'v-rec') renderRec();
   return true;
 }
@@ -2175,6 +2213,150 @@ function backupDue(){
   const days = Math.floor((Date.now() - (last || newest)) / 86400000);
   return (!last && sessions.length >= 3) || days >= 7 ? Math.max(days, 1) : 0;
 }
+
+// ---------- Google に保存（自分で用意した Apps Script に送る） ----------
+// 送り先と合言葉はバックアップに入れない。送信待ちは記録のIDだけを覚え、送るときに端末内の記録から作る。
+// 他のタブと共有するので、毎回 localStorage から読み直す。送り直しても、スクリプト側でその記録の行を置き換える
+const GS_URL_RE = /^https:\/\/script\.google\.com\/(?:a\/macros\/[\w.-]+\/|macros\/)s\/[\w-]{20,}\/exec$/;
+const GS_MAX = 45 * 1024 * 1024;
+const gsConf = () => Object.assign({ url: '', token: '', name: '', auto: true }, LS.get('gsync', {}));
+const gsReady = (c = gsConf()) => GS_URL_RE.test(c.url) && !!c.token;
+const gsQueue = () => LS.get('gsQueue', []);   // [{ id, tries, next, err }]
+const gsSentMap = () => LS.get('gsSent', {});  // id -> { at, rev, url }
+let gsBusy = false;
+function gsEnqueue(id){
+  LS.set('gsQueue', gsQueue().filter(q => q.id !== id).concat({ id, tries: 0, next: 0, err: '' }));
+  gsFlush();
+}
+// 送ったことのある記録を直したら、自動送信がオンなら送り直す
+function gsResend(id){ if (gsSentMap()[id] && gsReady() && gsConf().auto) gsEnqueue(id); }
+function gsAutoAfterStop(id){ if (gsReady() && gsConf().auto) gsEnqueue(id); }
+function gsCell(v){ return v == null || (typeof v === 'number' && !num(v)) ? '' : v; }
+async function gzip64(text){
+  if (typeof CompressionStream === 'undefined') return null;
+  const buf = new Uint8Array(await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+  let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+async function gsPayload(s, c){
+  const A = analyze(s), drag = s.mode === 'drag', ja = settings.lang === 'ja', pts = s.points;
+  const course = drag ? '' : (s.course ? s.course.name : ''), veh = s.vehicle ? s.vehicle.name : '';
+  const mode = tx(drag ? 'modeDrag' : s.mode === 'segment' ? 'modeSegment' : 'modeCircuit');
+  const kmh = pc => { const st = lapStats(s, A, pc); return Math.round(st.vmax / spdK() * KMH * 10) / 10; };
+  const sec = ms => num(ms) ? Math.round(ms) / 1000 : '';
+  let dist = 0;
+  for (let i = 1; i < pts.length; i++){ const a = A.proj(pts[i - 1]), b = A.proj(pts[i]); dist += Math.hypot(b.x - a.x, b.y - a.y); }
+  const vmax = pts.reduce((m, p) => Math.max(m, p.v), 0), best = bestPiece(A);
+  const end = s.endedAt || (pts.length ? pts[pts.length - 1].t : s.startedAt);
+  const nSec = Math.min(10, A.laps.reduce((m, l) => Math.max(m, (l.splits || []).length), 0));
+  const lapHead = (ja ? ['記録ID', '開始', '名前', '車両', 'モード', 'コース', '周', 'タイム(秒)', 'タイム', '最高速(km/h)', '除外', '警告', 'メモ']
+    : ['Recording ID', 'Start', 'Name', 'Vehicle', 'Mode', 'Track', 'Lap', 'Time (s)', 'Time', 'Top speed (km/h)', 'Excluded', 'Warning', 'Note'])
+    .concat(Array.from({ length: nSec }, (_, i) => ja ? `セクター${i + 1}(秒)` : `Sector ${i + 1} (s)`));
+  const laps = A.laps.map(l => [s.id, { t: l.start }, c.name, veh, mode, course, l.n, sec(l.time), fmtLap(l.time, 3), kmh(l), !!l.excl, !!l.warn,
+    drag ? Object.keys(l.times || {}).map(k => `${distLabel(k)} ${fmtS(l.times[k])}s`).concat(Object.keys(l.spd || {}).map(k => `0-${k}${l.spdUnit || 'km/h'} ${fmtS(l.spd[k])}s`)).join(' / ') : '']
+    .concat(Array.from({ length: nSec }, (_, i) => sec((l.splits || [])[i]))));
+  const sessHead = ja ? ['記録ID', '開始', '終了', '名前', '車両', 'モード', 'コース', '周回数', 'ベスト(秒)', 'ベスト', '走行時間(分)', '距離(km)', '最高速(km/h)', 'GPS点数', 'ファイル', '送信日時', 'アプリ版']
+    : ['Recording ID', 'Start', 'End', 'Name', 'Vehicle', 'Mode', 'Track', 'Laps', 'Best (s)', 'Best', 'Duration (min)', 'Distance (km)', 'Top speed (km/h)', 'GPS points', 'File', 'Sent at', 'App version'];
+  const sess = [s.id, { t: s.startedAt }, { t: end }, c.name, veh, mode, course, A.laps.length, best ? sec(best.time) : '', best ? fmtLap(best.time, 3) : '',
+    Math.round((end - s.startedAt) / 6000) / 10, Math.round(dist / 10) / 100, Math.round(vmax * KMH * 10) / 10, pts.length, '', { t: Date.now() }, APP_VERSION];
+  const json = JSON.stringify(exportSess(s)), gz = await gzip64(json).catch(() => null);
+  const file = { name: `lap_${fileStamp(s.startedAt)}_${s.id}.json` };
+  if (gz) file.gz = gz; else file.json = json;
+  return { app: 'lap-logger', v: 1, kind: 'session', token: c.token, id: s.id, file,
+    tables: [{ sheet: ja ? '走行' : 'Sessions', head: sessHead, rows: [sess.map(gsCell)], fileCol: 14 }, { sheet: ja ? 'ラップ' : 'Laps', head: lapHead, rows: laps.map(r => r.map(gsCell)) }] };
+}
+async function gsPost(c, body){
+  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 120000);
+  try {
+    // text/plain にすると、ブラウザの事前確認（Apps Script は受けられない）が起きない
+    const r = await fetch(c.url, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'text/plain;charset=utf-8' }, credentials: 'omit', redirect: 'follow', signal: ctl.signal });
+    const t = await r.text();
+    try { return JSON.parse(t); } catch (e){ return { ok: false, error: 'reply', status: r.status }; }
+  } catch (e){ return { ok: false, error: 'net' }; }
+  finally { clearTimeout(tm); }
+}
+const gsFatal = e => e === 'token' || e === 'notoken' || e === 'bad' || e === 'big' || e === 'reply';
+async function gsFlushNow(force){
+  const c = gsConf();
+  if (!gsReady(c) || rec.on || !DB.opened || navigator.onLine === false) return;
+  for (;;){
+    const q = gsQueue(), it = q.find(x => force || (Date.now() >= x.next && !gsFatal(x.err)));
+    if (!it) break;
+    const s = sessById(it.id);
+    let res;
+    if (!s){ LS.set('gsQueue', gsQueue().filter(x => x.id !== it.id)); continue; }
+    if (s.active) break;
+    const body = await gsPayload(s, c);
+    res = JSON.stringify(body).length > GS_MAX ? { ok: false, error: 'big' } : await gsPost(c, body);
+    const now = gsQueue();
+    if (res && res.ok){
+      LS.set('gsQueue', now.filter(x => x.id !== it.id));
+      LS.set('gsSent', Object.assign(gsSentMap(), { [it.id]: { at: Date.now(), rev: s.rev || 0, url: String(res.fileUrl || '') } }));
+    } else {
+      const e0 = (res && res.error) || 'net', err = ['net', 'server', 'token', 'notoken', 'reply', 'bad', 'big'].includes(e0) ? e0 : 'bad', tries = it.tries + 1;
+      LS.set('gsQueue', now.map(x => x.id === it.id ? Object.assign(x, { tries, err, next: Date.now() + Math.min(1800000, 15000 * 2 ** Math.min(tries, 7)) }) : x));
+      if (err === 'net' || err === 'server') break; // 電波や混雑のときは、全部まとめて後でやり直す
+    }
+    force = false;
+    if (curTab === 'v-set') renderGs();
+  }
+}
+async function gsFlush(force){
+  if (gsBusy) return; gsBusy = true;
+  try {
+    if (navigator.locks) await navigator.locks.request('lap-logger-gsync' + NS_SUFFIX, { ifAvailable: true }, l => l ? gsFlushNow(force) : null);
+    else await gsFlushNow(force);
+  } catch (e) {}
+  finally { gsBusy = false; if (curTab === 'v-set') renderGs(); if (curTab === 'v-rec' && recState.view === 'sess') renderGsSess(); }
+}
+window.addEventListener('online', () => gsFlush());
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') gsFlush(); });
+setInterval(() => { if (gsQueue().length) gsFlush(); }, 60000);
+function gsStateOf(s){
+  const q = gsQueue().find(x => x.id === s.id), sent = gsSentMap()[s.id];
+  if (q) return q.err ? tx('gsQErr', tx('gsErr_' + q.err)) : tx('gsQWait');
+  if (sent) return tx('gsSentAt', fmtDate(sent.at)) + ((s.rev || 0) !== sent.rev ? tx('gsChanged') : '');
+  return '';
+}
+function renderGsSess(){
+  const s = sessById(recState.sid), el = $('#gsSessNote');
+  if (el && s) el.textContent = gsReady() ? gsStateOf(s) : tx('gsNotSet');
+}
+function renderGs(){
+  const c = gsConf(), q = gsQueue();
+  $('#gsUrl').value = c.url; $('#gsToken').value = c.token; $('#gsName').value = c.name; $('#gsAuto').checked = !!c.auto;
+  const last = Object.values(gsSentMap()).reduce((m, x) => Math.max(m, x.at || 0), 0), errs = q.filter(x => x.err);
+  $('#gsStatus').textContent = !c.url && !c.token ? tx('gsNotSet') : !gsReady(c) ? tx('gsBadUrl')
+    : [tx('gsQueueN', q.length), last ? tx('gsLast', fmtDate(last)) : '', errs.length ? tx('gsErr_' + errs[errs.length - 1].err) : ''].filter(Boolean).join(' ');
+  $('#gsStatus').className = 'note' + (gsReady(c) && !errs.length ? '' : ' warnText');
+}
+function gsSetConf(patch){
+  const c = Object.assign(gsConf(), patch);
+  LS.set('gsync', c);
+  // 設定を直したら、止まっていた送信をやり直す
+  LS.set('gsQueue', gsQueue().map(x => Object.assign(x, { tries: 0, next: 0, err: '' })));
+  renderGs();
+}
+$('#gsUrl').addEventListener('change', e => gsSetConf({ url: e.target.value.trim() }));
+$('#gsToken').addEventListener('change', e => gsSetConf({ token: e.target.value.trim() }));
+$('#gsName').addEventListener('change', e => gsSetConf({ name: e.target.value.trim().slice(0, 40) }));
+$('#gsAuto').addEventListener('change', e => gsSetConf({ auto: e.target.checked }));
+$('#gsTest').addEventListener('click', async () => {
+  const c = gsConf();
+  if (!gsReady(c)){ alert(tx('gsBadUrl')); return; }
+  const b = $('#gsTest'); b.disabled = true;
+  const r = await gsPost(c, { app: 'lap-logger', v: 1, kind: 'ping', token: c.token });
+  b.disabled = false;
+  alert(r && r.ok ? tx('gsTestOk', String(r.sheet || '')) : tx('gsErr_' + ((r && r.error) || 'net')));
+});
+$('#gsSendAll').addEventListener('click', () => {
+  if (!gsReady()){ alert(tx('gsBadUrl')); return; }
+  const sent = gsSentMap(), have = new Set(gsQueue().map(x => x.id));
+  const add = sessions.filter(s => !s.active && !have.has(s.id) && (!sent[s.id] || (s.rev || 0) !== sent[s.id].rev)).map(s => ({ id: s.id, tries: 0, next: 0, err: '' }));
+  LS.set('gsQueue', gsQueue().map(x => Object.assign(x, { tries: 0, next: 0, err: '' })).concat(add));
+  gsFlush(); renderGs();
+});
+$('#gsGuide').addEventListener('click', () => { window.open('https://github.com/kiha81-png/lap-logger/blob/main/docs/GOOGLE_SYNC.md', '_blank', 'noopener'); });
 
 // ---------- 1周の詳しい画面 ----------
 const lv = { s: null, A: null, pc: null, tr: null, cmp: null, ctr: null, cmpKey: null, t: 0, playing: false, rate: 1, raf: 0, L: {}, mode: 'v', ci: 0, cmpCi: 1 };
@@ -3050,6 +3232,7 @@ function renderSettings(){
   $('#lastBackup').textContent = lb ? tx('lastBackupAt', fmtDate(lb)) : tx('neverBackup');
   $('#verInfo').textContent = tx('verInfo', APP_VERSION);
   renderBackups();
+  renderGs();
 }
 function applyLook(){ document.body.classList.toggle('hc', !!settings.hc); document.body.classList.toggle('cb', !!settings.cb); }
 $('#unitSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; settings.unit = b.dataset.u; saveSettings(); anaCache.forEach(A => A.pieces.forEach(pc => delete pc._st)); applyLang(); renderTab(); });
@@ -3162,6 +3345,7 @@ window.addEventListener('resize', () => {
   if (!consented()) $('#consent').hidden = false;
   try { checkHashImport(); } catch (err){}
   checkBattery();
+  gsFlush();
 })();
 $('#consentOk').addEventListener('click', () => { consentNow = true; LS.set('consent', CONSENT_VER); $('#consent').hidden = true; startGeo(); });
 // 電池が少ないときは、ホームで知らせる（Android の Chrome など、対応しているブラウザだけ）

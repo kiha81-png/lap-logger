@@ -21,6 +21,7 @@ A GPS lap timer for track days that runs in your phone's browser. Works for moto
 2. 「コース」タブで「新規」を押し、そのまま計測を始めて数周走ります（コースが未完成のあいだは記録だけになります）。
 3. 「コース」タブの「走った記録から作る」で、その記録を選びます。「自動で作る」でスタート/ゴールが置かれます。セクターは図の走行ラインをタップして置きます。Googleマップの座標を貼り付けても作れます。
 4. 大事な記録は、「設定 → 全データをバックアップ」で保存しておいてください。
+5. 走行ごとに自分の Google スプレッドシート・ドライブへ自動で送ることもできます（任意）。準備は [docs/GOOGLE_SYNC.md](docs/GOOGLE_SYNC.md) を見てください。
 
 ### 安全について
 - **走行中は、スマホを見たり操作したりしないでください。**
@@ -29,7 +30,8 @@ A GPS lap timer for track days that runs in your phone's browser. Works for moto
 
 ### プライバシー
 - **データはすべて、あなたの端末のブラウザの中だけに保存されます。** 走行データ・位置・設定を、作者を含む外部に送ることはありません。
-- アプリは、ブラウザの機能（Content-Security-Policy）で、外部との通信を一切できないようにしています。
+- 例外は、設定の「Googleに保存」を自分でオンにした場合だけです。そのときは、自分で用意した Google Apps Script（自分のスプレッドシート・ドライブ）にだけ送ります。
+- アプリは、ブラウザの機能（Content-Security-Policy）で、Google Apps Script（script.google.com）以外との通信をできないようにしています。
 - 解析ツール、広告、クッキーによる追跡は使っていません。
 - このページは GitHub Pages で公開しています。ページを開いたときのアクセス記録（IPアドレスなど）は、GitHub の方針に従って GitHub 側に残ります。
 - 書き出したファイル（JSON・CSV）には、走った場所と時刻が入っています。人に渡すときは注意してください。
@@ -62,7 +64,8 @@ A GPS lap timer for track days that runs in your phone's browser. Works for moto
 
 ### Privacy
 - **All data stays in your browser on your device.** Nothing — driving data, location or settings — is sent anywhere, including to the author.
-- A Content-Security-Policy blocks all outbound connections from the app.
+- The only exception is the optional "Save to Google" setting, which sends recordings to a Google Apps Script you set up yourself (your own Sheet and Drive). See [docs/GOOGLE_SYNC.md](docs/GOOGLE_SYNC.md) (Japanese).
+- A Content-Security-Policy blocks all outbound connections from the app except Google Apps Script (script.google.com).
 - No analytics, ads or tracking cookies.
 - The page is hosted on GitHub Pages; GitHub keeps access logs (such as IP addresses) under its own policies.
 - Exported files (JSON/CSV) contain where and when you drove. Be careful when sharing them.
