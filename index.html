@@ -32,6 +32,7 @@ h3{margin:22px 0 8px;font-size:15px;color:var(--sub);letter-spacing:.04em}
 h4{margin:0 0 6px;font-size:13px;color:var(--sub);letter-spacing:.08em}
 .note{color:var(--sub);font-size:14px;line-height:1.6}
 .warnText{color:var(--warn)}
+#homeNote{margin:0 0 10px}#homeNote:empty{display:none}
 .row{display:flex;gap:8px;margin:8px 0}
 .row>*{flex:1}
 .row>button{flex:0 0 auto}
@@ -88,31 +89,45 @@ body.recording nav{display:none}
 .startBtn{width:100%;padding:20px;font-size:22px;border-radius:16px;background:var(--accent);color:#fff;margin-top:10px;letter-spacing:.06em;
   position:sticky;bottom:calc(78px + env(safe-area-inset-bottom));box-shadow:0 6px 24px rgba(0,0,0,.6)}
 
-/* 計測中 */
-#live:not([hidden]){display:grid;grid-template-columns:1fr;gap:8px;grid-template-areas:"head" "time" "cells" "g" "btns" "note";
-  grid-template-rows:auto auto auto 1fr auto auto;min-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
+/* 計測中（走行中はチラ見するだけなので、大きく・高コントラストに） */
+body.recording{--bg:#000;--panel:#000;--sub:#e6e6e6;--line:#fff}
+#live:not([hidden]){display:flex;flex-direction:column;gap:8px;
+  min-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
   min-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px)}
-.cells.nosec #cellSpeed{grid-column:1/-1}
-.runHead{grid-area:head;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
-.runTime{grid-area:time}.cells{grid-area:cells}.gbox{grid-area:g}.runBtns{grid-area:btns}#runNote{grid-area:note;margin:0}
-.big{font-size:clamp(56px,21vw,150px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.05;text-align:center;letter-spacing:-.02em}
-.lapno{text-align:center;color:var(--sub);font-size:18px}
+.runHead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.runMain{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;text-align:center}
+#runNote{margin:0}
+.mainLbl{font-size:20px;font-weight:700;color:var(--sub)}
+.big{font-size:clamp(56px,19vw,150px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1.05;letter-spacing:-.02em;white-space:nowrap}
+.big.short{font-size:clamp(64px,27vw,200px)}
+.mainSub{font-size:clamp(24px,8vw,48px);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .dragList{font-size:20px;font-variant-numeric:tabular-nums;text-align:center;line-height:1.5}
 .cells{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.cell{background:var(--panel);border-radius:14px;padding:10px 12px;transition:background .2s;min-width:0}
-.cell.flash{background:#34404f}
-.lbl{font-size:14px;color:var(--sub)}
-.val{font-size:clamp(30px,10vw,64px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;white-space:nowrap}
+.cell{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:8px 12px;transition:background .3s;min-width:0}
+.cell.span{grid-column:1/-1}
+.cell.flash{background:#34404f;color:#fff}.cell.flash.good{background:#0d5c26;color:#fff}.cell.flash.bad{background:#7a1a14;color:#fff}.cell.flash.bestc{background:#4b1f6e;color:#fff}
+.cell.flash .diff{color:#fff}
+.lbl{font-size:16px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.val{font-size:clamp(28px,9vw,56px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;white-space:nowrap}
 .diff{font-size:clamp(20px,6vw,36px);font-weight:700;font-variant-numeric:tabular-nums;min-height:1.2em;white-space:nowrap}
 .gbox{display:flex;align-items:center;justify-content:center;gap:14px}
-#gCanvas{width:min(62vw,300px,34vh);background:none;border-radius:50%}
+.gbox[hidden]{display:none}
+#gCanvas{width:min(50vw,240px,28vh);background:none;border-radius:50%}
 .gvals{font-size:15px;color:var(--sub);display:flex;flex-direction:column;gap:6px}
 .gvals b{display:block;color:var(--text);font-size:26px;font-variant-numeric:tabular-nums}
-.runBtns button{width:100%;padding:22px;font-size:22px;border-radius:16px}
+.runBtns{position:relative;z-index:41} /* ラップ完了の全画面表示の上に出して、停止ボタンを隠さない */
+.runBtns button{width:100%;padding:20px;font-size:22px;border-radius:16px}
 .hold{position:relative;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
 .hold .fill{position:absolute;inset:0;background:rgba(255,255,255,.28);transform:scaleX(0);transform-origin:left}
 .hold.pressing .fill{transform:scaleX(1);transition:transform 1s linear}
 .hold span{position:relative;pointer-events:none}
+/* ラップ完了：数秒だけ画面全体を結果の色にする（触っても下のボタンに届く） */
+#lapFlash:not([hidden]){position:fixed;inset:0;z-index:40;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#1d4fa8;color:#fff;text-align:center;padding:16px;font-variant-numeric:tabular-nums}
+#lapFlash.good{background:#0d6b2c}#lapFlash.bad{background:#a3150c}#lapFlash.bestc{background:#6a1fa0}
+#lapFlash .lfN{font-size:clamp(24px,7vw,48px);font-weight:800}
+#lapFlash .lfD{font-size:clamp(72px,28vw,220px);font-weight:900;line-height:1.05;white-space:nowrap}
+#lapFlash .lfT{font-size:clamp(36px,12vw,96px);font-weight:800;white-space:nowrap}
 
 /* 記録 */
 .rcard,.lcard{display:block;width:100%;text-align:left;background:var(--panel);border-radius:16px;padding:14px;margin:8px 0;position:relative}
@@ -147,7 +162,6 @@ body.cb{--good:#4da3ff;--bad:#ff9f0a;--best:#f0e442}
 /* 屋外向けの高コントラスト表示 */
 body.hc{--bg:#000;--panel:#000;--panel2:#111;--line:#fff;--text:#fff;--sub:#e6e6e6;--btn:#222}
 body.hc .cell,body.hc .block,body.hc .rcard,body.hc .lcard,body.hc .mcard,body.hc .lineCard{border:2px solid #fff}
-body.hc .val{font-size:clamp(34px,11vw,72px)}
 body.hc .lbl,body.hc .note{font-size:16px}
 body.hc button{border:2px solid #fff}
 body.hc .lcard.excl{opacity:.8;text-decoration:line-through}
@@ -195,25 +209,31 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
   .startBtn{bottom:10px}
   .mcard{display:grid;grid-template-columns:1.2fr 1fr;grid-template-rows:auto 1fr;gap:8px 16px;align-items:start}
   .mcard .outline{grid-row:1/3;grid-column:1;height:clamp(140px,52vh,320px)}
-  #live:not([hidden]){grid-template-columns:1fr auto;gap:6px 16px;align-items:start;
-    grid-template-areas:"head head" "time g" "cells g" "cells btns" "note note";grid-template-rows:auto auto 1fr auto auto}
-  .big{font-size:clamp(40px,20vh,130px)}
-  .lapno{font-size:15px}
+  #live:not([hidden]){display:grid;grid-template-columns:1.25fr 1fr;gap:6px 16px;align-items:stretch;
+    grid-template-areas:"head head" "main cells" "g btns" "note note";grid-template-rows:auto 1fr auto auto}
+  .runHead{grid-area:head}.runMain{grid-area:main}.cells{grid-area:cells}.gbox{grid-area:g}.runBtns{grid-area:btns;align-self:end}.cells{align-self:start}#runNote{grid-area:note}
+  .big{font-size:clamp(40px,22vh,150px)}
+  .big.short{font-size:clamp(48px,32vh,220px)}
+  .mainSub{font-size:clamp(20px,9vh,48px)}
+  .mainLbl{font-size:17px}
   .dragList{font-size:16px}
-  .cell{padding:6px 10px}
-  .val{font-size:clamp(22px,8vh,56px)}
-  .diff{font-size:clamp(14px,5vh,32px)}
-  .gbox{flex-direction:column;gap:6px}
-  #gCanvas{width:min(46vh,34vw)}
+  .cell{padding:4px 10px}
+  .lbl{font-size:14px}
+  .val{font-size:clamp(22px,8vh,48px)}
+  .diff{font-size:clamp(14px,5vh,28px)}
+  .gbox{gap:10px;flex-direction:row}
+  #gCanvas{width:min(26vh,18vw)}
   .gvals{flex-direction:row;gap:14px}
   .gvals b{display:inline;font-size:20px;margin-left:4px}
-  .runBtns{align-self:end}
   .runBtns button{padding:14px;font-size:18px}
+  #lapFlash .lfD{font-size:clamp(64px,36vh,240px)}
+  #lapFlash .lfT{font-size:clamp(32px,15vh,110px)}
 }
 </style>
 </head>
 <body>
 <div id="banner" hidden></div>
+<div id="lapFlash" hidden aria-live="assertive"><div class="lfN" id="lfN"></div><div class="lfD" id="lfD"></div><div class="lfT" id="lfT"></div></div>
 <div id="shareBox" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="shareH"><div class="box">
   <h2 id="shareH" data-i18n="shareCourse"></h2><p id="shareName"></p>
   <canvas id="qrCv" role="img" aria-label="QR"></canvas><p class="note" id="qrMsg"></p>
@@ -230,6 +250,8 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
 <section id="v-run" class="on">
   <div id="home" class="wrap">
     <div class="topbar"><span class="gpsPill" data-gps><span class="gtxt"></span></span><select id="selVeh" aria-label="vehicle"></select></div>
+    <div class="dueBox" id="dueBox" hidden><span id="dueText"></span><button id="dueBtn" class="primary" data-i18n="backupNow"></button></div>
+    <p class="note" id="homeNote" aria-live="polite"></p>
     <div class="carousel" id="carousel">
       <div class="mcard" data-mode="circuit">
         <canvas class="outline" id="olCircuit"></canvas>
@@ -248,20 +270,18 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
       </div>
     </div>
     <div class="dots" id="dots"><button data-i="0" aria-label="1"></button><button data-i="1" aria-label="2"></button><button data-i="2" aria-label="3"></button></div>
-    <div class="dueBox" id="dueBox" hidden><span id="dueText"></span><button id="dueBtn" class="primary" data-i18n="backupNow"></button></div>
-    <p class="note" id="homeNote"></p>
     <button id="startBtn" class="startBtn" disabled></button>
   </div>
   <div id="live" hidden>
     <div class="runHead"><span class="gpsPill" data-gps><span class="gtxt"></span></span><span id="wakeText" class="sub"></span><span id="runLabel" class="sub"></span></div>
-    <div class="runTime"><div class="big" id="curLap">-:--.-</div><div class="lapno" id="lapNo"></div><div class="dragList" id="dragList"></div></div>
+    <div class="runMain"><div class="mainLbl" id="mainLbl"></div><div class="big" id="mainVal">-:--.-</div><div class="mainSub" id="mainSub"></div><div class="dragList" id="dragList"></div></div>
     <div class="cells">
+      <div class="cell" id="cellCur"><div class="lbl" id="lapNo"></div><div class="val" id="curLap">-:--.-</div></div>
       <div class="cell" id="cellLast"><div class="lbl" id="lblLast"></div><div class="val" id="lastLap">--</div><div class="diff" id="lastDiff"></div></div>
-      <div class="cell"><div class="lbl" data-i18n="pb"></div><div class="val" id="bestLap">--</div></div>
+      <div class="cell" id="cellBest"><div class="lbl" data-i18n="pb"></div><div class="val" id="bestLap">--</div></div>
       <div class="cell" id="cellSec"><div class="lbl" id="secLbl"></div><div class="val" id="secTime">--</div><div class="diff" id="secDiff"></div></div>
-      <div class="cell" id="cellSpeed"><div class="lbl" data-i18n="speedKmh"></div><div class="val" id="speed">--</div></div>
     </div>
-    <div class="gbox">
+    <div class="gbox" id="gbox">
       <canvas id="gCanvas"></canvas>
       <div class="gvals"><div><span data-i18n="gLat"></span><b id="gLat">--</b></div><div><span data-i18n="gLon"></span><b id="gLon">--</b></div></div>
     </div>
@@ -349,6 +369,10 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
   <button id="vehDel" class="danger wide" data-i18n="delVeh"></button>
   <h3 data-i18n="display"></h3>
   <div class="seg" id="unitSeg"><button data-u="kmh">km/h</button><button data-u="mph">mph</button></div>
+  <h4 style="margin-top:14px" data-i18n="liveMainTitle"></h4>
+  <div class="seg" id="mainSeg"><button data-m="last" data-i18n="mainLast"></button><button data-m="delta" data-i18n="mainDelta"></button></div>
+  <p class="note" data-i18n="liveMainNote"></p>
+  <div class="row"><label class="chk"><input type="checkbox" id="optLiveG"><span data-i18n="optLiveG"></span></label></div>
   <div class="row"><label class="chk"><input type="checkbox" id="optHc"><span data-i18n="optHc"></span></label></div>
   <div class="row"><label class="chk"><input type="checkbox" id="optCb"><span data-i18n="optCb"></span></label></div>
   <button id="showConsent" class="wide" data-i18n="showConsent"></button>
@@ -380,6 +404,10 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
 // ---------- 言語 ----------
 const I18N = {
   ja: {
+    liveMainTitle: '走行中の大きな表示', mainLast: '前ラップとの差', mainDelta: 'ベストとの今の差（予測ラップ）', optLiveG: '走行中にGメーターも表示する',
+    liveMainNote: '「前ラップとの差」は、ラインを越えるたびに、そのラップとベストとの差を大きく出します。「ベストとの今の差」は、ベストラップの同じ地点と比べた今の差と、このまま走ったときの予測ラップを出します（GPSの更新ごと、ふつうは1秒に1回）。',
+    lblVsBest: 'ベストとの差', lblDeltaNow: 'ベストとの今の差', predLap: v => `予測 ${v}`, lastLapIs: v => `前ラップ ${v}`, noRefYet: 'ベストラップがまだありません', elapsed: '経過',
+    newBest: 'ベスト更新',
     tabRun: '計測', tabRec: '記録', tabCourse: 'コース', tabSet: '設定',
     modeCircuit: 'サーキット', modeDrag: 'ドラッグ', modeSegment: 'セグメント',
     descCircuit: 'コントロールラインで周回を計測', descDrag: '停止から加速。距離と速度のタイム', descSegment: 'スタートからゴールまで（別の場所）',
@@ -392,7 +420,7 @@ const I18N = {
     courseIncomplete: p => `${p}\nこのままではラップは計測されません。記録だけ始めますか？（あとで向きを決めて再計算できます）`,
     recordOnly: '記録のみ（ラップ計測なし）', outLapWait: 'アウトラップ（ライン通過で計測開始）', lapN: n => `ラップ ${n}`,
     segWait: 'スタートライン待ち', segRun: '計測中', lastLap: '前ラップ', lastRun: '前回', pb: '自己ベスト',
-    sector: 'セクター', sectorN: k => `セクター${k}`, speedKmh: () => `速度 ${U()}`, missed: '取りこぼし', bestBadge: 'ベスト',
+    sector: 'セクター', sectorN: k => `セクター${k}`, missed: '取りこぼし', bestBadge: 'ベスト',
     gLat: '横G', gLon: '前後G', mSpeed: '速度', mSum: '合成G', noG: 'Gなし', R: '右', L: '左',
     dragStop: '停止してください（2秒止まると準備完了）', dragReady: 'スタートできます', dragRun: '計測中', dragDone: '完了（止まると次の計測）',
     dragDists: '計測する距離', dragSpeeds: () => `速度のタイム：${spdTargets().map(x => '0-' + x).join('・')}${U()}`, drag1hz: 'スマホのGPSは1秒に1回の更新のため、ドラッグのタイムは目安です。',
@@ -482,6 +510,10 @@ const I18N = {
     minCross: '時速約14km未満でラインを通過しても数えません（停車中にGPSが揺れて、ラインをまたいだと判定されるのを防ぐため）。', untitled: '(無題)', sec: '秒'
   },
   en: {
+    liveMainTitle: 'Main display while riding', mainLast: 'Last lap vs best', mainDelta: 'Live gap to best (predicted lap)', optLiveG: 'Show the G meter while riding',
+    liveMainNote: '"Last lap vs best" shows the gap between each completed lap and your best. "Live gap to best" compares where you are now with the same point on your best lap and shows the predicted lap time (updated with each GPS fix, usually once per second).',
+    lblVsBest: 'Gap to best', lblDeltaNow: 'Live gap to best', predLap: v => `Predicted ${v}`, lastLapIs: v => `Last lap ${v}`, noRefYet: 'No best lap yet', elapsed: 'Elapsed',
+    newBest: 'NEW BEST',
     tabRun: 'Timer', tabRec: 'Records', tabCourse: 'Tracks', tabSet: 'Settings',
     modeCircuit: 'CIRCUIT', modeDrag: 'DRAG', modeSegment: 'SEGMENT',
     descCircuit: 'Continuous laps over a start/finish line', descDrag: 'Standing start: distance and speed times', descSegment: 'Point A to point B, separate start and finish',
@@ -494,7 +526,7 @@ const I18N = {
     courseIncomplete: p => `${p}\nLaps will not be timed. Record anyway? (You can set the line directions and recalculate later.)`,
     recordOnly: 'Recording only (no lap timing)', outLapWait: 'Out lap (timing starts at the line)', lapN: n => `Lap ${n}`,
     segWait: 'Waiting for the start line', segRun: 'Running', lastLap: 'Last lap', lastRun: 'Last run', pb: 'Best',
-    sector: 'Sector', sectorN: k => `Sector ${k}`, speedKmh: () => `Speed ${U()}`, missed: 'missed', bestBadge: 'BEST',
+    sector: 'Sector', sectorN: k => `Sector ${k}`, missed: 'missed', bestBadge: 'BEST',
     gLat: 'Lat G', gLon: 'Long G', mSpeed: 'Speed', mSum: 'Total G', noG: 'No G', R: 'R', L: 'L',
     dragStop: 'Come to a stop (ready after 2 s)', dragReady: 'Ready – go!', dragRun: 'Running', dragDone: 'Done (stop to re-arm)',
     dragDists: 'Distances', dragSpeeds: () => `Speed times: ${spdTargets().map(x => '0-' + x).join(', ')} ${U()}`, drag1hz: 'Phone GPS updates about once per second, so drag times are approximate.',
@@ -588,8 +620,8 @@ ${m} of them belong to another track and will move to this track (their old resu
 // ---------- 共通 ----------
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const R = 6371008.8, D2R = Math.PI / 180, G0 = 9.80665;
-const MIN_CROSS_V = 4;
-const STILL_V = 0.8;                  // m/s。これ未満は停止とみなす                 // m/s。これ未満のライン通過は数えない
+const MIN_CROSS_V = 4;                 // m/s。これ未満のライン通過は数えない（停車中の GPS の揺れ対策）
+const STILL_V = 0.8;                  // m/s。これ未満は停止とみなす
 const BRAKE_G = -0.15, ACCEL_G = 0.05; // ブレーキ・惰性の判定
 const MODES = ['circuit', 'drag', 'segment'];
 const DRAG_DISTS = [201.168, 402.336, 200, 400, 800, 1000, 1200, 1600];
@@ -613,7 +645,8 @@ function fmtLap(ms, dec = 2){
 }
 const fmtS = ms => ms == null ? '--' : (ms / 1000).toFixed(2);
 const fmtSec = ms => ms == null ? '--' : ms >= 60000 ? fmtLap(ms) : fmtS(ms);
-const fmtDiff = ms => (ms >= 0 ? '+' : '−') + (Math.abs(ms) / 1000).toFixed(2);
+const fmtDiff = ms => Math.abs(ms) < 5 ? '±0.00' : (ms >= 0 ? '+' : '−') + (Math.abs(ms) / 1000).toFixed(2);
+const diffCls = ms => Math.abs(ms) < 5 ? '' : ms < 0 ? 'good' : 'bad'; // 0.005秒未満の差は、速い・遅いの色を付けない
 const fmtGLat = g => g == null ? '--' : `${Math.abs(g).toFixed(2)}${Math.abs(g) < 0.005 ? '' : g > 0 ? tx('R') : tx('L')}`;
 const fmtGLon = g => g == null ? '--' : `${g >= 0 ? '+' : '−'}${Math.abs(g).toFixed(2)}`;
 function fmtDate(t){ const d = new Date(t); return `${d.getFullYear()}/${pad2(d.getMonth() + 1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
@@ -626,7 +659,7 @@ function parseLatLon(text){
 }
 
 // ---------- 保存 ----------
-const APP_VERSION = '4.2.0';
+const APP_VERSION = '4.3.0';
 const SCHEMA = 2;
 // github.io では同じユーザーのページ同士が保存領域を共有するので、公開URL以外（テスト用など）は名前を分ける
 const NS = location.pathname.replace(/[^/]*$/, '') || '/';
@@ -767,7 +800,7 @@ function showBanner(msg){ const b = $('#banner'); b.textContent = msg; b.hidden 
 const CONSENT_VER = 1;
 let consentNow = false;
 const consented = () => consentNow || LS.get('consent', 0) >= CONSENT_VER;
-const DEFAULT_OPT = { minLap: 30, maxAcc: 20, mode: 'circuit', unit: 'kmh', hc: false, cb: false, dragDist: [200, 400], courseCircuit: null, courseSegment: null,
+const DEFAULT_OPT = { minLap: 30, maxAcc: 20, mode: 'circuit', unit: 'kmh', hc: false, cb: false, liveMain: 'last', liveG: false, dragDist: [200, 400], courseCircuit: null, courseSegment: null,
   lang: (navigator.language || 'ja').toLowerCase().startsWith('ja') ? 'ja' : 'en' };
 let settings = Object.assign({}, DEFAULT_OPT, LS.get('settings', {}));
 const saveSettings = () => LS.set('settings', settings);
@@ -817,7 +850,6 @@ const sessById = id => sessions.find(s => s.id === id);
 
 // ---------- 幾何 ----------
 function ptOk(p){ return !!p && num(p.lat) && num(p.lon); }
-const lineReady = l => !!l && ptOk(l.c) && num(l.hdg) && l.w > 0;
 function makeProj(lat0, lon0){
   const kx = Math.cos(lat0 * D2R) * R * D2R, ky = R * D2R;
   const f = p => ({ x: (p.lon - lon0) * kx, y: (p.lat - lat0) * ky });
@@ -875,7 +907,9 @@ class LapDetector {
     this.lines = course.lines.map(l => lineSeg(l, this.proj));
     this.n = this.lines.length;
     this.nSec = this.loop ? this.n : this.n - 1;
-    this.dir = new Array(this.n).fill(0);
+    // 通過の向き：ラインの向き（進行方向）が決まっていれば、その向きに越えたときだけ数える（-1 が進行方向）。
+    // 決まっていなければ、最初に越えた向きにそろえる
+    this.dir = course.lines.map(l => num(l.hdg) ? -1 : 0);
     this.prev = null; this.lapStart = null; this.lastSplit = 0; this.next = 1;
     this.splits = []; this.warn = false; this.laps = [];
   }
@@ -1309,7 +1343,6 @@ function zigzag(vals, prom){
   return out;
 }
 const pieceLabel = pc => pc.kind === 'out' ? tx('outLap') + '*' : pc.kind === 'in' ? tx('inLap') + '*' : pc.kind === 'run' ? tx('runN', pc.n) : tx('lapN', pc.n);
-const pieceColor = (pc, i) => PAL[i % PAL.length];
 function bestPiece(A){ return A.laps.filter(l => !l.warn && !l.excl).reduce((b, l) => (!b || l.time < b.time) ? l : b, null); }
 function dragMain(s){ const ds = (s.settings && s.settings.dragDist && s.settings.dragDist.length) ? s.settings.dragDist : [400]; return Math.max(...ds); }
 function sessBest(s){
@@ -1380,8 +1413,12 @@ function onPos(pos){
   } else if (sv != null){ p.v = sv; p.sp = 1; }
   if (p.v < STILL_V) p.v = 0; // 時速約3km未満は止まっているとみなす
   pts.push(p);
-  $('#speed').textContent = Math.round(p.v * spdK());
   if (rec.det){ const ev = rec.det.push(p); if (s.mode === 'drag') handleDrag(ev); else handleEvents(ev); }
+  if (s.mode !== 'drag' && rec.det && live.ref && live.lapStart != null){
+    const r = live.ref.at(p, live.lapStart);
+    live.delta = r ? r.delta : null; live.pred = r ? r.pred : null;
+  }
+  renderMain();
   if (s.vehicle.type === 'bike' && pts.length >= 3){
     const g = g3(pts[pts.length - 3], pts[pts.length - 2], pts[pts.length - 1]);
     if (g){
@@ -1400,6 +1437,7 @@ function onPosErr(e){
   live.err = true;
   setNote(e.code === 1 ? tx('geoDenied') : e.code === 3 ? tx('geoTimeout') : tx('geoErr', e.message), true);
 }
+let gpsShown = '';
 function updateGps(){
   let cls = '', txt;
   if (geo.denied) { cls = 'bad'; txt = tx('gpsDenied'); }
@@ -1413,15 +1451,20 @@ function updateGps(){
       txt = tx(cls === 'ok' ? 'gpsGood' : 'gpsWeak', Math.round(live.acc)) + (iv ? ` · ${(1 / iv).toFixed(1)}Hz` : '');
     }
   }
+  const key = cls + '|' + txt + '|' + settings.lang;
+  if (key === gpsShown) return; // 0.1秒ごとに呼ばれるので、変わったときだけ書き換える
+  gpsShown = key;
   $$('[data-gps]').forEach(el => { el.className = 'gpsPill ' + cls; el.querySelector('.gtxt').textContent = txt; });
 }
 
 // ---------- ライブのGメーター ----------
-const gm = { trail: [], cur: null, max: 6, w: 0 };
-function gmPush(g){ gm.cur = g; gm.trail.push(g); while (gm.trail.length > gm.max) gm.trail.shift(); }
+const gm = { trail: [], cur: null, max: 6, w: 0, dirty: true };
+function gmPush(g){ gm.cur = g; gm.trail.push(g); while (gm.trail.length > gm.max) gm.trail.shift(); gm.dirty = true; }
 function drawGMeter(force){
   const cv = $('#gCanvas'), w = cv.clientWidth;
   if (!w) return;
+  if (!force && !gm.dirty && gm.w === w) return; // 新しい値が来たときだけ描き直す（発熱と電池のため）
+  gm.dirty = false;
   if (force || gm.w !== w){
     const dpr = window.devicePixelRatio || 1;
     cv.style.height = w + 'px'; cv.width = Math.round(w * dpr); cv.height = Math.round(w * dpr);
@@ -1570,33 +1613,130 @@ document.addEventListener('visibilitychange', async () => {
   for (const s of others) if (!held.has(LOCKP + s.id)) refreshSession(s.id);
 });
 function setNote(msg, warn){ const el = $('#runNote'); el.textContent = msg || ''; el.className = 'note' + (warn ? ' warnText' : ''); }
-function flash(sel){ const el = $(sel); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1500); }
+const flashTm = new Map();
+// 結果の色で数秒光らせる（cls：good・bad・bestc、または空）
+function flash(sel, cls){
+  const el = $(sel), FL = ['flash', 'good', 'bad', 'bestc'];
+  clearTimeout(flashTm.get(sel)); el.classList.remove(...FL); void el.offsetWidth;
+  el.classList.add('flash'); if (cls) el.classList.add(cls);
+  flashTm.set(sel, setTimeout(() => el.classList.remove(...FL), 3000));
+}
+let lapFlashTm = null;
+// ラップ完了：数秒だけ、画面全体に結果を大きく出す
+function lapFlash(last, loop){
+  const el = $('#lapFlash');
+  $('#lfN').textContent = loop ? tx('lapN', last.n) : tx('lastRun');
+  if (last.diff == null){ $('#lfD').textContent = fmtLap(last.time); $('#lfT').textContent = ''; }
+  else { $('#lfD').textContent = fmtDiff(last.diff); $('#lfT').textContent = (last.best ? tx('newBest') + '  ' : '') + fmtLap(last.time) + (last.warn ? '⚠' : ''); }
+  el.className = last.cls || ''; el.hidden = false;
+  clearTimeout(lapFlashTm); lapFlashTm = setTimeout(() => { el.hidden = true; }, 5000);
+}
+const setText = (el, t) => { if (el.textContent !== t) el.textContent = t; };
+// 画面中央の大きな表示。設定に合わせて「前ラップとベストの差」か「ベストとの今の差」。出せるものがなければ経過時間
+function renderMain(){
+  if (!rec.on) return;
+  const s = rec.session, mv = $('#mainVal');
+  let lbl = '', val = null, sub = '', cls = '';
+  if (s.mode !== 'drag' && rec.det){
+    if (settings.liveMain === 'delta'){
+      if (live.delta != null){ lbl = tx('lblDeltaNow'); val = fmtDiff(live.delta); cls = diffCls(live.delta); sub = tx('predLap', fmtLap(live.pred)); }
+      else if (!live.ref) sub = tx('noRefYet');
+    } else if (live.last){
+      const lt = fmtLap(live.last.time) + (live.last.warn ? '⚠' : '');
+      if (live.last.diff != null){ lbl = tx('lblVsBest'); val = fmtDiff(live.last.diff); cls = live.last.cls; sub = `${$('#lblLast').textContent} ${lt}`; }
+      else { lbl = $('#lblLast').textContent; val = lt; }
+    }
+  }
+  if (val == null){ lbl = $('#lapNo').textContent; val = $('#curLap').textContent; }
+  setText($('#mainLbl'), lbl); setText($('#mainSub'), sub); setText(mv, val);
+  const c = 'big' + (val.length <= 5 ? ' short' : '') + (cls ? ' ' + cls : '');
+  if (mv.className !== c) mv.className = c;
+}
+// ベストラップの同じ地点と比べた、今のタイム差。pts は {t（ラップ開始からのミリ秒）, lat, lon}
+class LiveDelta {
+  constructor(pts){
+    this.proj = makeProj(pts[0].lat, pts[0].lon);
+    this.p = pts.map(q => { const xy = this.proj(q); return { x: xy.x, y: xy.y, t: q.t }; });
+    this.total = pts[pts.length - 1].t; this.i = 0;
+  }
+  reset(){ this.i = 0; }
+  _near(P, lo, hi, ok){
+    let best = null;
+    for (let i = lo; i < hi; i++){
+      const a = this.p[i], b = this.p[i + 1], dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy;
+      const k = L2 ? clamp01(((P.x - a.x) * dx + (P.y - a.y) * dy) / L2) : 0, d = Math.hypot(a.x + k * dx - P.x, a.y + k * dy - P.y);
+      if ((!best || d < best.d) && (!ok || ok(a.t + k * (b.t - a.t)))) best = { d, i, k };
+    }
+    return best;
+  }
+  // p：今の点、lapStart：このラップの開始時刻。ベストの走行ラインから 40m 以上離れていれば null
+  at(p, lapStart){
+    const n = this.p.length, el = p.t - lapStart, P = this.proj(p);
+    if (n < 2) return null;
+    // ふだんは前回の位置の近くだけを探す。見失ったら全体から探す（ただし経過時間が大きく違う所は除く：周回はスタートとゴールが重なるため）
+    const near = t => Math.abs(t - el) < this.total * 0.3;
+    let b = this._near(P, Math.max(0, this.i - 2), Math.min(n - 1, this.i + 30), near);
+    if (!b || b.d > 40) b = this._near(P, 0, n - 1, near);
+    if (!b || b.d > 40) return null;
+    this.i = b.i;
+    const a = this.p[b.i], c = this.p[b.i + 1], ref = a.t + b.k * (c.t - a.t);
+    return { delta: el - ref, pred: this.total + el - ref };
+  }
+}
+// 1周（lap：start・end・sll・ell）の走行ラインから、比べる相手を作る
+function makeRef(points, lap){
+  const pts = [{ t: 0, lat: lap.sll.lat, lon: lap.sll.lon }];
+  for (const q of points) if (q.t > lap.start && q.t < lap.end) pts.push({ t: q.t - lap.start, lat: q.lat, lon: q.lon });
+  pts.push({ t: lap.end - lap.start, lat: lap.ell.lat, lon: lap.ell.lon });
+  return pts.length >= 3 ? new LiveDelta(pts) : null;
+}
+// この車両・コースのベストラップ（記録とラップ）
+function bestRef(vehId, course){
+  const key = courseKey(course); let best = null;
+  for (const s of sessions){
+    if (s.active || s.mode === 'drag' || !s.vehicle || s.vehicle.id !== vehId || !s.course || courseKey(s.course) !== key) continue;
+    const A = analyze(s);
+    for (const l of A.laps) if (!l.warn && !l.excl && (!best || l.time < best.l.time)) best = { s, l };
+  }
+  return best;
+}
+// 見えているセルが奇数なら、最後のセルを横いっぱいにする
+function layoutCells(){
+  const vis = $$('.cells .cell').filter(c => { c.classList.remove('span'); return !c.hidden; });
+  if (vis.length % 2) vis[vis.length - 1].classList.add('span');
+}
 function handleEvents(evs){
   const loop = rec.session.course.type !== 'segment';
   for (const e of evs){
     if (e.type === 'start'){
-      live.lapStart = e.t;
+      live.lapStart = e.t; live.delta = null;
+      if (live.ref) live.ref.reset();
       $('#lapNo').textContent = loop ? tx('lapN', e.n) : tx('segRun');
     } else if (e.type === 'lap'){
-      const t = e.lap.time, pb = live.pbLap, d = $('#lastDiff');
+      const t = e.lap.time, pb = live.pbLap, d = $('#lastDiff'), best = !e.lap.warn && pb != null && t < pb;
+      let cls = '';
       $('#lastLap').textContent = fmtLap(t) + (e.lap.warn ? '⚠' : '');
       if (pb == null) d.textContent = '';
-      else if (t < pb && !e.lap.warn){ d.textContent = tx('bestBadge') + ' ' + fmtDiff(t - pb); d.className = 'diff bestc'; }
-      else { d.textContent = fmtDiff(t - pb); d.className = 'diff ' + (t < pb ? 'good' : 'bad'); }
-      if (!e.lap.warn && (pb == null || t < pb)){ live.pbLap = t; $('#bestLap').textContent = fmtLap(t); }
+      else if (best){ d.textContent = tx('bestBadge') + ' ' + fmtDiff(t - pb); cls = 'bestc'; }
+      else { d.textContent = fmtDiff(t - pb); cls = diffCls(t - pb); }
+      d.className = 'diff ' + cls;
+      live.last = { n: e.lap.n, time: t, warn: e.lap.warn, diff: pb == null ? null : t - pb, cls, best };
+      live.delta = null;
+      if (!e.lap.warn && (pb == null || t < pb)){ live.pbLap = t; $('#bestLap').textContent = fmtLap(t); live.ref = makeRef(rec.session.points, e.lap); }
       if (!loop){ live.lapStart = null; $('#curLap').textContent = fmtLap(t); $('#lapNo').textContent = tx('segWait'); }
-      flash('#cellLast');
+      flash('#cellLast', cls); lapFlash(live.last, loop);
     } else if (e.type === 'sector'){
       const b = live.pbSp[e.k - 1], d = $('#secDiff');
       $('#secLbl').textContent = tx('sectorN', e.k);
+      let cls = '';
       if (e.time == null){ $('#secTime').textContent = '--'; d.textContent = tx('missed'); d.className = 'diff'; }
       else {
         $('#secTime').textContent = fmtSec(e.time);
         if (b == null) d.textContent = '';
-        else { d.textContent = fmtDiff(e.time - b); d.className = 'diff ' + (e.time < b ? 'good' : 'bad'); }
+        else { cls = diffCls(e.time - b); d.textContent = fmtDiff(e.time - b); d.className = 'diff ' + cls; }
         if (!e.warn && (b == null || e.time < b)) live.pbSp[e.k - 1] = e.time;
       }
-      flash('#cellSec');
+      flash('#cellSec', cls);
     }
   }
 }
@@ -1606,7 +1746,7 @@ function handleDrag(evs){
     if (e.type === 'armed') $('#lapNo').textContent = tx('dragReady');
     else if (e.type === 'start'){ live.lapStart = e.t; $('#lapNo').textContent = tx('dragRun'); $('#dragList').innerHTML = ''; $('#secTime').textContent = '--'; }
     else if (e.type === 'mark'){
-      const b = pb.times[e.d], diff = b != null ? ` <span class="${e.time < b ? 'good' : 'bad'}">${fmtDiff(e.time - b)}</span>` : '';
+      const b = pb.times[e.d], diff = b != null ? ` <span class="${diffCls(e.time - b)}">${fmtDiff(e.time - b)}</span>` : '';
       $('#dragList').insertAdjacentHTML('beforeend', `<div>${esc(tx('dragRunLine', e.d, fmtS(e.time), Math.round(e.v * spdK())))}${diff}</div>`);
     } else if (e.type === 'spd'){
       if (e.s === spdTargets(rec.session.settings.unit === 'mph' ? 'mph' : 'km/h')[0]) $('#secTime').textContent = fmtS(e.time);
@@ -1617,16 +1757,17 @@ function handleDrag(evs){
       $('#curLap').textContent = tm != null ? fmtS(tm) : fmtS(r.time);
       $('#lastLap').textContent = (tm != null ? fmtS(tm) : '--') + (r.warn ? '⚠' : '');
       if (tm == null || b == null) d.textContent = '';
-      else { d.textContent = (tm < b && !r.warn ? tx('bestBadge') + ' ' : '') + fmtDiff(tm - b); d.className = 'diff ' + (tm < b ? 'bestc' : 'bad'); }
+      else { d.textContent = (tm < b && !r.warn ? tx('bestBadge') + ' ' : '') + fmtDiff(tm - b); d.className = 'diff ' + (tm < b ? 'bestc' : diffCls(tm - b)); }
       if (!r.warn){
         for (const [k, v] of Object.entries(r.times)) if (pb.times[k] == null || v < pb.times[k]) pb.times[k] = v;
         for (const [k, v] of Object.entries(r.spd)){ const key = r.spdUnit + ':' + k; if (pb.spd[key] == null || v < pb.spd[key]) pb.spd[key] = v; }
       }
       $('#bestLap').textContent = pb.times[D] != null ? fmtS(pb.times[D]) : '--';
       $('#lapNo').textContent = tx('dragDone');
-      flash('#cellLast');
+      flash('#cellLast', tm != null && b != null ? (tm < b && !r.warn ? 'bestc' : diffCls(tm - b)) : '');
     }
   }
+  renderMain();
 }
 async function wakeOn(){
   const w = $('#wakeText');
@@ -1678,16 +1819,17 @@ async function startRec(){
   rec.det = mode === 'drag' ? new DragDetector(s.settings) : (courseProblem(s.course) ? null : new LapDetector(s.course, s.settings));
   sessions.unshift(s);
   holdRecLock(s.id);
-  Object.assign(live, { lapStart: null, err: false, gEma: null });
+  Object.assign(live, { lapStart: null, err: false, gEma: null, last: null, delta: null, pred: null, ref: null });
+  $('#lapFlash').hidden = true;
   Object.assign(gm, { trail: [], cur: null, max: veh.type === 'car' ? 30 : 6 });
   Object.assign(mo, { basis, f: 0, l: 0, lastT: 0, lastStore: 0, count: 0 });
   if (basis) motionListen(true);
-  ['#lastLap', '#bestLap', '#secTime', '#speed', '#gLat', '#gLon'].forEach(k => $(k).textContent = '--');
+  ['#lastLap', '#bestLap', '#secTime', '#gLat', '#gLon'].forEach(k => $(k).textContent = '--');
   $('#lastDiff').textContent = ''; $('#secDiff').textContent = ''; $('#dragList').innerHTML = '';
   if (mode === 'drag'){
     live.dragMain = Math.max(...s.settings.dragDist); live.dragPb = dragBest(veh.id);
     $('#curLap').textContent = '0.00'; $('#lapNo').textContent = tx('dragStop');
-    $('#lblLast').textContent = `${tx('lastRun')}  ${distLabel(live.dragMain)}`; $('#secLbl').textContent = `0-${spdTargets()[0]}${U()}`; $('#cellSec').hidden = false; $('.cells').classList.remove('nosec');
+    $('#lblLast').textContent = `${tx('lastRun')}  ${distLabel(live.dragMain)}`; $('#secLbl').textContent = `0-${spdTargets()[0]}${U()}`; $('#cellSec').hidden = false; $('#cellCur').hidden = true;
     if (live.dragPb.times[live.dragMain] != null) $('#bestLap').textContent = fmtS(live.dragPb.times[live.dragMain]);
     $('#runLabel').textContent = `${s.vehicle.name}・${tx('modeDrag')} ${s.settings.dragDist.map(distLabel).join('/')}`;
   } else {
@@ -1697,17 +1839,19 @@ async function startRec(){
     $('#curLap').textContent = '-:--.-';
     $('#lapNo').textContent = !rec.det ? tx('recordOnly') : course.type === 'segment' ? tx('segWait') : tx('outLapWait');
     $('#lblLast').textContent = course.type === 'segment' ? tx('lastRun') : tx('lastLap'); $('#secLbl').textContent = tx('sector');
-    $('#cellSec').hidden = nSecOf(course) < 2;
-    $('.cells').classList.toggle('nosec', $('#cellSec').hidden);
+    $('#cellSec').hidden = nSecOf(course) < 2; $('#cellCur').hidden = false;
+    const br = rec.det ? bestRef(veh.id, course) : null;
+    live.ref = br ? makeRef(br.s.points, br.l) : null;
     $('#runLabel').textContent = `${s.vehicle.name}・${course.name}`;
   }
+  $('#gbox').hidden = !settings.liveG; layoutCells();
   document.body.classList.add('recording'); $('#updBar').hidden = true;
   $('#home').hidden = true; $('#live').hidden = false;
   if (curTab !== 'v-run') showTab('v-run');
   startGeo(); wakeOn();
   setNote(tx('recNote'));
   if (veh.type === 'car' && !basis){ $('#gLat').textContent = tx('noG'); $('#gLon').textContent = ''; }
-  drawGMeter(true);
+  drawGMeter(true); renderMain();
   DB.append(s).then(ok => { if (ok) bcast({ type: 'rec-start', id: s.id }); });
 }
 function stopRec(){
@@ -1722,7 +1866,7 @@ function stopRec(){
   analyze(s);
   const cleanup = () => { if (unlock) unlock(); setTimeout(() => rec.releasing.delete(LOCKP + s.id), 1000); };
   DB.append(s).catch(() => false).then(ok => { cleanup(); if (ok) bcast({ type: 'rec-stop', id: s.id }); if (impC) setTimeout(showImport, 500); homeNote(); const el = $('#homeNote'); el.textContent = (ok ? tx('saved', 1) : tx('saveFail')) + (el.textContent ? ' ' + el.textContent : ''); el.className = 'note' + (ok ? '' : ' warnText'); });
-  document.body.classList.remove('recording'); showUpdate();
+  document.body.classList.remove('recording'); showUpdate(); $('#lapFlash').hidden = true;
   $('#home').hidden = false; $('#live').hidden = true; $('#wakeText').textContent = '';
   renderHome();
 }
@@ -1740,8 +1884,9 @@ setInterval(() => {
   const s = rec.session;
   if (live.lapStart != null){
     const el = Date.now() - live.clockOff - live.lapStart;
-    $('#curLap').textContent = s.mode === 'drag' ? (el / 1000).toFixed(1) : fmtLap(el, 1);
-  } else if (!rec.det && s.mode !== 'drag') $('#curLap').textContent = fmtLap(Date.now() - rec.startedAt, 1);
+    setText($('#curLap'), s.mode === 'drag' ? (el / 1000).toFixed(1) : fmtLap(el, 1));
+  } else if (!rec.det && s.mode !== 'drag') setText($('#curLap'), fmtLap(Date.now() - rec.startedAt, 1));
+  renderMain();
   drawGMeter();
   if (mo.basis && !mo.count && Date.now() - rec.startedAt > 3000) setNote(tx('motionSilent'), true);
 }, 100);
@@ -2099,14 +2244,13 @@ function buildLapLayers(){
     }
     if (s.course) drawCourseLines(ctx, f, s.course, A.proj, -1);
     // ラベル
-    const series = mode === 'lon' ? vals : vals;
     const prom = mode === 'v' ? 8 : 0.2;
-    const ext = finite.length ? zigzag(series, prom) : [];
+    const ext = finite.length ? zigzag(vals, prom) : [];
     const placed = [];
     ctx.font = 'bold 12px system-ui';
     for (const e of ext){
       if (mode === 'lat' || mode === 'sum'){ if (e.type !== 'max') continue; }
-      const v = series[e.i]; if (v == null) continue;
+      const v = vals[e.i]; if (v == null) continue;
       const [x, y] = f(tr[e.i]);
       const txt = mode === 'v' ? v.toFixed(0) : (mode === 'lon' && v < 0 ? '−' : '') + Math.abs(v).toFixed(2);
       const tw = ctx.measureText(txt).width + 8, bx = Math.min(w - tw - 2, x + 6), by = Math.max(2, y - 20);
@@ -2891,7 +3035,8 @@ $('#cAuto').addEventListener('click', () => {
 function renderSettings(){
   $$('#langSeg button').forEach(b => b.classList.toggle('on', b.dataset.l === settings.lang));
   $$('#unitSeg button').forEach(b => b.classList.toggle('on', b.dataset.u === settings.unit));
-  $('#optHc').checked = !!settings.hc; $('#optCb').checked = !!settings.cb;
+  $('#optHc').checked = !!settings.hc; $('#optCb').checked = !!settings.cb; $('#optLiveG').checked = !!settings.liveG;
+  $$('#mainSeg button').forEach(b => b.classList.toggle('on', b.dataset.m === (settings.liveMain === 'delta' ? 'delta' : 'last')));
   const v = curVehicle();
   $('#vehSel').innerHTML = vehicles.map(x => `<option value="${esc(x.id)}"${x.id === v.id ? ' selected' : ''}>${esc(x.name)}（${esc(tx(x.type === 'car' ? 'car' : 'bike'))}）</option>`).join('');
   $('#vehName').value = v.name;
@@ -2908,6 +3053,8 @@ function renderSettings(){
 }
 function applyLook(){ document.body.classList.toggle('hc', !!settings.hc); document.body.classList.toggle('cb', !!settings.cb); }
 $('#unitSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; settings.unit = b.dataset.u; saveSettings(); anaCache.forEach(A => A.pieces.forEach(pc => delete pc._st)); applyLang(); renderTab(); });
+$('#mainSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; settings.liveMain = b.dataset.m; saveSettings(); renderSettings(); });
+$('#optLiveG').addEventListener('change', e => { settings.liveG = e.target.checked; saveSettings(); });
 $('#optHc').addEventListener('change', e => { settings.hc = e.target.checked; saveSettings(); applyLook(); });
 $('#optCb').addEventListener('change', e => { settings.cb = e.target.checked; saveSettings(); applyLook(); });
 // 不具合の報告用。走行データや位置は入れない

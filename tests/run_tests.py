@@ -1,6 +1,7 @@
 """Lap Logger の自動テスト。
 
-必要なもの: Python 3、Playwright と QR の読み取り（pip install playwright zxing-cpp pillow）、Microsoft Edge。
+必要なもの: Python 3、Playwright と QR の読み取り（pip install playwright zxing-cpp pillow）、Microsoft Edge
+          （無ければ Playwright の Chromium。環境変数 BROWSER_PATH でブラウザを指定することもできる）。
 使い方:    python tests/run_tests.py
 
 このリポジトリのフォルダだけを http://127.0.0.1:<空きポート>/lap-logger-test/ で配信し、
@@ -253,6 +254,27 @@ TESTS = {
   const noDup = courses.length === n; showTab('v-run');
   return [!threw && gone && hiddenWhileRec && shownAfter && noDup, { threw, gone, hiddenWhileRec, shownAfter, noDup }];
 }""",
+'direction_from_heading': """() => {
+  // ラインの向きが決まっていれば、最初に逆向きで越えても、その後の正しい向きのラップを数える
+  const R = 300, v = 40, c = migrateCourse({ id: 'td', name: 't', type: 'circuit', lines: [{ c: toLL(R, 0), hdg: 0, w: 30 }] });
+  const pts = []; let a = 0.3, t = 1.7e12;
+  const step = d => { a += d * v / R; t += 1000; const p = toLL(R * Math.cos(a), R * Math.sin(a)); pts.push({ t, lat: p.lat, lon: p.lon, v, acc: 5 }); };
+  for (let i = 0; i < 6; i++) step(-1);
+  for (let i = 0; i < 160; i++) step(1);
+  const det = runDet({ course: c, settings: { minLap: 30 }, points: pts }), exp = 2 * Math.PI * R / v * 1000;
+  return [det.laps.length === 3 && det.laps.every(l => Math.abs(l.time - exp) < 150), { laps: det.laps.map(l => (l.time / 1000).toFixed(3)) }];
+}""",
+'live_delta': """() => {
+  // ベストより2%速く走ると、差はだんだん − になり、1周で約 −0.92 秒。予測ラップは実際のタイムに近い
+  const R = 300, v = 40, v2 = 40.8, T = 2 * Math.PI * R / v * 1000, ref = [];
+  for (let t = 0; t <= T; t += 1000){ const p = toLL(R * Math.cos(v * t / 1000 / R), R * Math.sin(v * t / 1000 / R)); ref.push({ t, lat: p.lat, lon: p.lon }); }
+  const e = toLL(R, 0); ref.push({ t: T, lat: e.lat, lon: e.lon });
+  const D = new LiveDelta(ref), t0 = 1.7e12, T2 = 2 * Math.PI * R / v2 * 1000, out = [];
+  for (let t = 500; t < T2; t += 1000){ const a = v2 * t / 1000 / R, p = toLL(R * Math.cos(a), R * Math.sin(a)); const r = D.at({ t: t0 + t, lat: p.lat, lon: p.lon }, t0); out.push(r ? r.delta : null); }
+  const last = out[out.length - 1], mono = out.every((d, i) => d != null && (i === 0 || d <= out[i - 1] + 30));
+  const far = D.at({ t: t0 + 1000, lat: toLL(R + 200, 0).lat, lon: toLL(R + 200, 0).lon }, t0);
+  return [mono && last < -800 && last > -1000 && Math.abs(out[0]) < 50 && far === null, { first: out[0], last, n: out.length }];
+}""",
 'escape': """() => {
   const evil = '<img src=x onerror=alert(1)>';
   return [esc(evil) === '&lt;img src=x onerror=alert(1)&gt;', esc(evil)];
@@ -272,11 +294,22 @@ STORAGE = """async () => {
 }"""
 
 
+def launch(p):
+    """BROWSER_PATH があればそのブラウザ、なければ Edge、Edge が無ければ Playwright の Chromium で開く。"""
+    exe = os.environ.get('BROWSER_PATH')
+    if exe:
+        return p.chromium.launch(executable_path=exe, headless=True)
+    try:
+        return p.chromium.launch(channel='msedge', headless=True)
+    except Exception:
+        return p.chromium.launch(headless=True)
+
+
 def main():
     httpd, url = start_server()
     results, failed = {}, 0
     with sync_playwright() as p:
-        b = p.chromium.launch(channel='msedge', headless=True)
+        b = launch(p)
         ctx = b.new_context(service_workers='allow')
         page = ctx.new_page()
         errors = []
