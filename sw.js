@@ -1,7 +1,7 @@
 // オフラインで起動できるように、アプリのファイルを端末に保存しておく。
 // ページ本体は、つながるときは最新版を取りに行き（3秒で諦めて保存済みのものを使う）、そのたびに保存し直す。
 // アイコンなどは保存済みのものを使う。アプリを更新したら VERSION も上げる。
-const VERSION = '4.3.0';
+const VERSION = '4.5.0';
 const PREFIX = 'lap-logger:' + self.registration.scope + ':';
 const CACHE = PREFIX + VERSION;
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];

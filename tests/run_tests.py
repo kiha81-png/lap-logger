@@ -7,7 +7,7 @@
 このリポジトリのフォルダだけを http://127.0.0.1:<空きポート>/lap-logger-test/ で配信し、
 Edge（画面なし）で開いて、合成した走行データで判定・保存・オフライン動作を確かめる。
 """
-import base64, functools, http.server, io, json, os, socketserver, sys, threading, time
+import base64, functools, gzip, http.server, io, json, os, socketserver, sys, threading, time
 import zxingcpp
 from PIL import Image
 from playwright.sync_api import sync_playwright
@@ -275,6 +275,12 @@ TESTS = {
   const far = D.at({ t: t0 + 1000, lat: toLL(R + 200, 0).lat, lon: toLL(R + 200, 0).lon }, t0);
   return [mono && last < -800 && last > -1000 && Math.abs(out[0]) < 50 && far === null, { first: out[0], last, n: out.length }];
 }""",
+'thin_keeps_gaps': """() => {
+  // 描画用の間引き：点の数を上限以下にし、端と途切れ（gap）は残す
+  const a = []; for (let i = 0; i < 10000; i++) a.push({ i, gap: i === 5003 });
+  const b = thin(a, 1000), g = b.filter(p => p.gap);
+  return [b.length <= 1100 && b[0].i === 0 && b[b.length - 1].i === 9999 && g.length === 1 && g[0].i >= 5003 && g[0].i <= 5010 && thin(a.slice(0, 50), 1000).length === 50, { n: b.length, gap: g.map(p => p.i) }];
+}""",
 'escape': """() => {
   const evil = '<img src=x onerror=alert(1)>';
   return [esc(evil) === '&lt;img src=x onerror=alert(1)&gt;', esc(evil)];
@@ -305,6 +311,36 @@ def launch(p):
         return p.chromium.launch(headless=True)
 
 
+# フリー走行で半日（12時間）記録する：走る→20分休憩→走る→GPSが15分途切れる→走る
+FREE_RIDE = """async () => {
+  settings.mode = 'free'; settings.dim = false; live.lastFixT = 0; await startRec();
+  const s = rec.session, base = Date.now() + 9e6, seg = [[0, 7200, 20], [7200, 8400, 0], [8400, 15600, 25], [16500, 43200, 15]];
+  let y = 0, prevEnd = null; const t0 = performance.now();
+  for (const [a, b, v] of seg){
+    if (prevEnd != null && a > prevEnd) y += (a - prevEnd) * 25; // 途切れているあいだも進んでいる
+    for (let k = a; k < b; k++){
+      y += v; const q = toLL(v ? 0 : (k % 2) * 1.5, y);
+      onPos({ timestamp: base + k * 1000, coords: { latitude: q.lat, longitude: q.lon, accuracy: 5, speed: v } });
+    }
+    prevEnd = b;
+  }
+  const tFeed = performance.now() - t0, liveDist = live.free.dist, gapShown = $('#runNote').classList.contains('warnText');
+  stopRec(); await DB.q;
+  const t1 = performance.now(), A = analyze(s), tAna = performance.now() - t1, r = A.ride;
+  const gsRow = (await gsPayload(s, { name: '', token: 'x' })).tables[0].rows[0], gs = [gsRow[5], gsRow[11]];
+  showTab('v-rec'); recState.sid = s.id;
+  const t2 = performance.now(); goRec('sess', false); const tSess = performance.now() - t2;
+  const t3 = performance.now(); recState.pi = 0; lv.cmpKey = null; lv.t = 0; goRec('lap', false); lv.t = 20000e3; lvUpdate(); const tLap = performance.now() - t3;
+  const lapTitle = $('#lTitle').textContent, cmpHidden = $('#cmpRow').style.display === 'none';
+  goRec('list', false); const card = $('#recCards .rcard').textContent.replace(/\\s+/g, ' ');
+  showTab('v-run'); settings.mode = 'circuit';
+  const expDist = 7199 * 20 + 7200 * 25 + 26699 * 15;
+  return { sid: s.id, n: s.points.length, pieces: A.pieces.map(p => p.kind + p.n), dist: Math.round(r.dist), expDist, liveDist: Math.round(liveDist),
+    mov: Math.round(r.mov / 1000), stop: Math.round(r.stop / 1000), gapN: r.gapN, gapS: Math.round(r.gapMs / 1000), vmax: r.vmax, gs, gapShown, cmpHidden, lapTitle, card,
+    ms: { feed: Math.round(tFeed), analyze: Math.round(tAna), sess: Math.round(tSess), lap: Math.round(tLap) } };
+}"""
+
+
 def main():
     httpd, url = start_server()
     results, failed = {}, 0
@@ -325,6 +361,17 @@ def main():
         page.reload(); waitjs(page, 'ready === true')
         n = page.evaluate("id => { const s = sessById(id); return s ? s.points.length : -1 }", sid)
         results['storage_append'] = [n == 25, {'points_after_reload': n}]
+
+        # フリー走行の半日記録：集計・区間分け・表示の速さ・読み込み直し
+        page.evaluate(SETUP); fr = page.evaluate(FREE_RIDE)
+        page.reload(); waitjs(page, 'ready === true'); page.evaluate(SETUP)
+        back = page.evaluate("id => { const s = sessById(id); return s ? [s.points.length, s.mode, !!s.ride && s.ride.dist] : null }", fr['sid'])
+        ok = (fr['n'] == 42300 and fr['pieces'] == ['ride0', 'leg1', 'leg2', 'leg3'] and abs(fr['dist'] - fr['expDist']) < fr['expDist'] * 0.002
+              and abs(fr['liveDist'] - fr['dist']) < 50 and abs(fr['mov'] - 41100) < 5 and abs(fr['stop'] - 1200) < 5 and fr['gapN'] == 1 and fr['gapS'] == 901
+              and fr['vmax'] == 25 and fr['gs'][0] == page.evaluate("tx('modeFree')") and abs(fr['gs'][1] - fr['dist'] / 1000) < 0.02 and fr['gapShown'] and fr['cmpHidden'] and fr['ms']['analyze'] < 1500 and fr['ms']['sess'] < 1500 and fr['ms']['lap'] < 3000
+              and back == [42300, 'free', fr['dist']])
+        results['free_ride_half_day'] = [ok, {**fr, 'after_reload': back}]
+        if os.environ.get('LAP_LOGGER_VERBOSE'): print(json.dumps(results['free_ride_half_day'], ensure_ascii=False))
 
         # 2つのタブ：A で記録中に B を開き、A が止めたら B も「記録中」でなくなるか
         page.evaluate("async () => { settings.mode = 'drag'; live.lastFixT = 0; await startRec(); for (let i = 0; i < 5; i++) onPos({ timestamp: Date.now() + 2e6 + i * 1000, coords: { latitude: 34.84, longitude: 136.54 + i * 0.0002, accuracy: 4, speed: 20 } }); await DB.append(rec.session); await new Promise(r => setTimeout(r, 300)); }")
@@ -376,6 +423,53 @@ def main():
         results['qr_share'] = [share['visible'] and qr_text == share['url'] and '#c=LL1.' in (qr_text or '') and got['shown'] and got['hashGone']
                                and got['n'] == n0 + 1 and got['name'] == '共有<b>テスト</b>' and got['lines'] == want and bad_codes == [None, None, None, 'nullpt'],
                                {'qr': (qr_text or '')[:60], 'url_len': len(share['url']), 'got': got, 'want': want, 'bad': bad_codes}]
+        # Google に保存：送信を横取りして中身を確かめる。1回目は通信エラーで送信待ちに残り、やり直しで送れる
+        posts, fail = [], {'n': 1}
+        def gs_route(route):
+            posts.append(route.request.post_data)
+            if fail['n'] > 0:
+                fail['n'] -= 1
+                return route.abort()
+            body = json.loads(route.request.post_data)
+            res = {'ok': True, 'sheet': 'T'} if body.get('kind') == 'ping' else {'ok': True, 'fileUrl': 'https://drive.google.com/file/d/x/view'}
+            if body.get('token') != 'tokSECRET123':
+                res = {'ok': False, 'error': 'token'}
+            route.fulfill(status=200, content_type='application/json', headers={'Access-Control-Allow-Origin': '*'}, body=json.dumps(res))
+        page.route('https://script.google.com/**', gs_route)
+        gs = page.evaluate("""async () => {
+          const idle = async () => { await new Promise(r => setTimeout(r, 50)); while (gsBusy) await new Promise(r => setTimeout(r, 50)); };
+          const R = 300, v = 40, pts = [];
+          for (let i = 0; i < 200; i++){ const a = -0.3 + v * i / R, p = toLL(R * Math.cos(a), R * Math.sin(a)); pts.push({ t: 1.75e12 + i * 1000, lat: p.lat, lon: p.lon, v, acc: 5 }); }
+          const c = migrateCourse({ id: 'tgs', name: '=コース', type: 'circuit', lines: [{ c: toLL(R, 0), hdg: null, w: 30 }] });
+          const s = { id: 'gs1', startedAt: pts[0].t, mode: 'circuit', vehicle: vehSnap(vehicles[0]), course: c, settings: { minLap: 30, maxAcc: 20 }, points: pts, laps: [] };
+          autoHeadingLine(c.lines[0], [s]);
+          await addSessions([s]);
+          const lang0 = settings.lang; settings.lang = 'ja';
+          LS.set('gsync', { url: 'https://script.google.com/macros/s/AKfycbTEST_abcdefghijklmnop/exec', token: 'tokSECRET123', name: 'tester', auto: true });
+          gsAutoAfterStop('gs1'); await idle();
+          const q1 = gsQueue();
+          LS.set('gsQueue', gsQueue().map(x => Object.assign(x, { next: 0 }))); await gsFlush(); await idle();
+          showTab('v-set'); renderSettings();
+          const st = $('#gsStatus').textContent;
+          LS.set('gsync', Object.assign(gsConf(), { token: 'wrong' })); gsEnqueue('gs1'); await idle();
+          const q3 = gsQueue();
+          LS.set('gsync', {}); LS.set('gsQueue', []); LS.set('gsSent', {}); showTab('v-run'); settings.lang = lang0;
+          return { q1, st, q3, laps: analyze(s).laps.length, backupLeak: JSON.stringify(buildBackup()).includes('tokSECRET123') };
+        }""")
+        last = json.loads(posts[1]) if len(posts) > 1 else {}
+        tabs = {t['sheet']: t for t in last.get('tables', [])}
+        try:
+            fj = json.loads(gzip.decompress(base64.b64decode(last['file']['gz'])))
+        except Exception:
+            fj = {}
+        laps_t, sess_t = tabs.get('ラップ', {}), tabs.get('走行', {})
+        results['google_sync'] = [len(posts) == 3 and gs['q1'][0]['err'] == 'net' and gs['q1'][0]['tries'] == 1
+                                  and gs['q3'][0]['err'] == 'token' and not gs['backupLeak'] and '送信待ち：0件' in gs['st']
+                                  and last.get('id') == 'gs1' and fj.get('id') == 'gs1' and len(fj.get('points', [])) == 200
+                                  and len(laps_t.get('rows', [])) == gs['laps'] >= 3 and laps_t['rows'][0][2] == 'tester'
+                                  and sess_t.get('rows', [[]])[0][6] == '=コース' and sess_t.get('fileCol') == 14 and sess_t['head'][14] == 'ファイル',
+                                  {'posts': len(posts), 'gs': gs, 'laps_rows': len(laps_t.get('rows', [])), 'sess': sess_t.get('rows')}]
+        page.unroute('https://script.google.com/**')
         results['backup_roundtrip'] = [json.loads(backup)['kind'] == 'backup' and len(json.loads(backup)['sessions']) >= 1, len(json.loads(backup)['sessions'])]
         results['no_page_errors'] = [not errors, errors]
         b.close()
