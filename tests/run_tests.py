@@ -7,7 +7,7 @@
 このリポジトリのフォルダだけを http://127.0.0.1:<空きポート>/lap-logger-test/ で配信し、
 Edge（画面なし）で開いて、合成した走行データで判定・保存・オフライン動作を確かめる。
 """
-import base64, functools, http.server, io, json, os, socketserver, sys, threading, time
+import base64, functools, gzip, http.server, io, json, os, socketserver, sys, threading, time
 import zxingcpp
 from PIL import Image
 from playwright.sync_api import sync_playwright
@@ -376,6 +376,53 @@ def main():
         results['qr_share'] = [share['visible'] and qr_text == share['url'] and '#c=LL1.' in (qr_text or '') and got['shown'] and got['hashGone']
                                and got['n'] == n0 + 1 and got['name'] == '共有<b>テスト</b>' and got['lines'] == want and bad_codes == [None, None, None, 'nullpt'],
                                {'qr': (qr_text or '')[:60], 'url_len': len(share['url']), 'got': got, 'want': want, 'bad': bad_codes}]
+        # Google に保存：送信を横取りして中身を確かめる。1回目は通信エラーで送信待ちに残り、やり直しで送れる
+        posts, fail = [], {'n': 1}
+        def gs_route(route):
+            posts.append(route.request.post_data)
+            if fail['n'] > 0:
+                fail['n'] -= 1
+                return route.abort()
+            body = json.loads(route.request.post_data)
+            res = {'ok': True, 'sheet': 'T'} if body.get('kind') == 'ping' else {'ok': True, 'fileUrl': 'https://drive.google.com/file/d/x/view'}
+            if body.get('token') != 'tokSECRET123':
+                res = {'ok': False, 'error': 'token'}
+            route.fulfill(status=200, content_type='application/json', headers={'Access-Control-Allow-Origin': '*'}, body=json.dumps(res))
+        page.route('https://script.google.com/**', gs_route)
+        gs = page.evaluate("""async () => {
+          const idle = async () => { await new Promise(r => setTimeout(r, 50)); while (gsBusy) await new Promise(r => setTimeout(r, 50)); };
+          const R = 300, v = 40, pts = [];
+          for (let i = 0; i < 200; i++){ const a = -0.3 + v * i / R, p = toLL(R * Math.cos(a), R * Math.sin(a)); pts.push({ t: 1.75e12 + i * 1000, lat: p.lat, lon: p.lon, v, acc: 5 }); }
+          const c = migrateCourse({ id: 'tgs', name: '=コース', type: 'circuit', lines: [{ c: toLL(R, 0), hdg: null, w: 30 }] });
+          const s = { id: 'gs1', startedAt: pts[0].t, mode: 'circuit', vehicle: vehSnap(vehicles[0]), course: c, settings: { minLap: 30, maxAcc: 20 }, points: pts, laps: [] };
+          autoHeadingLine(c.lines[0], [s]);
+          await addSessions([s]);
+          const lang0 = settings.lang; settings.lang = 'ja';
+          LS.set('gsync', { url: 'https://script.google.com/macros/s/AKfycbTEST_abcdefghijklmnop/exec', token: 'tokSECRET123', name: 'tester', auto: true });
+          gsAutoAfterStop('gs1'); await idle();
+          const q1 = gsQueue();
+          LS.set('gsQueue', gsQueue().map(x => Object.assign(x, { next: 0 }))); await gsFlush(); await idle();
+          showTab('v-set'); renderSettings();
+          const st = $('#gsStatus').textContent;
+          LS.set('gsync', Object.assign(gsConf(), { token: 'wrong' })); gsEnqueue('gs1'); await idle();
+          const q3 = gsQueue();
+          LS.set('gsync', {}); LS.set('gsQueue', []); LS.set('gsSent', {}); showTab('v-run'); settings.lang = lang0;
+          return { q1, st, q3, laps: analyze(s).laps.length, backupLeak: JSON.stringify(buildBackup()).includes('tokSECRET123') };
+        }""")
+        last = json.loads(posts[1]) if len(posts) > 1 else {}
+        tabs = {t['sheet']: t for t in last.get('tables', [])}
+        try:
+            fj = json.loads(gzip.decompress(base64.b64decode(last['file']['gz'])))
+        except Exception:
+            fj = {}
+        laps_t, sess_t = tabs.get('ラップ', {}), tabs.get('走行', {})
+        results['google_sync'] = [len(posts) == 3 and gs['q1'][0]['err'] == 'net' and gs['q1'][0]['tries'] == 1
+                                  and gs['q3'][0]['err'] == 'token' and not gs['backupLeak'] and '送信待ち：0件' in gs['st']
+                                  and last.get('id') == 'gs1' and fj.get('id') == 'gs1' and len(fj.get('points', [])) == 200
+                                  and len(laps_t.get('rows', [])) == gs['laps'] >= 3 and laps_t['rows'][0][2] == 'tester'
+                                  and sess_t.get('rows', [[]])[0][6] == '=コース' and sess_t.get('fileCol') == 14 and sess_t['head'][14] == 'ファイル',
+                                  {'posts': len(posts), 'gs': gs, 'laps_rows': len(laps_t.get('rows', [])), 'sess': sess_t.get('rows')}]
+        page.unroute('https://script.google.com/**')
         results['backup_roundtrip'] = [json.loads(backup)['kind'] == 'backup' and len(json.loads(backup)['sessions']) >= 1, len(json.loads(backup)['sessions'])]
         results['no_page_errors'] = [not errors, errors]
         b.close()
