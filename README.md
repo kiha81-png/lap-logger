@@ -83,7 +83,7 @@ Use [Issues](https://github.com/kiha81-png/lap-logger/issues) and paste "Setting
 - `index.html` がアプリ本体、`sw.js` がオフライン対応、`manifest.webmanifest` がホーム画面用の設定です。
 - **更新するときは、`index.html` の `APP_VERSION` と `sw.js` の `VERSION` を同じ値に上げてください。**
 - 保存データの形を変えるときは、`SCHEMA` を上げ、`DB.open()` の `onupgradeneeded` に移行処理を書きます（移行前に `backups` へ控えを取ります）。
-- テスト：`python tests/run_tests.py`（Python、`pip install playwright zxing-cpp pillow`、Microsoft Edge が必要です）
+- テスト：`python tests/run_tests.py`（Python、`pip install playwright zxing-cpp pillow`、Microsoft Edge。Edge が無ければ Playwright の Chromium を使います。`BROWSER_PATH` でブラウザを指定することもできます）
 - 公開前の実機確認：[`docs/DEVICE_TEST.md`](docs/DEVICE_TEST.md)
 
 ## License
