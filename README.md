@@ -10,7 +10,8 @@ A GPS lap timer for track days that runs in your phone's browser. Works for moto
 ## 日本語
 
 ### できること
-- **計測モード**：サーキット（周回）、ドラッグ（停止からの加速。距離と速度のタイム）、セグメント（A地点からB地点）
+- **計測モード**：サーキット（周回）、ドラッグ（停止からの加速。距離と速度のタイム）、セグメント（A地点からB地点）、フリー走行（コース不要。一般道やツーリングを半日でも記録）
+- **フリー走行**：距離・走行時間・停車時間・平均速度（走行中）・最高速を表示。3分以上の休憩で区間を分けて、区間ごとにも集計します。GPSが途切れた区間は線をつながず、距離にも入れません。計測中は「省電力表示」（黒背景・Gメーターなし）に切り替えられます。
 - **コース**：「記録だけ」で数周走り、その軌跡をタップしてラインを置けます（スタート/ゴールの自動配置も可）。Googleマップの座標を貼り付けても登録でき、向きは走った記録から自動で決めます。前後・左右・回転・幅の微調整ができます。QRコード・リンク・ファイルで仲間と共有できます。
 - **Gメーター**：バイクはGPSから計算、車はスマホの加速度センサーで測ります。
 - **解析**：ラップの統計（速度、ブレーキと惰性の時間）、再生スライダー、地図への速度とGの表示、2ラップの比較（タイム差）、G-G図
@@ -37,7 +38,7 @@ A GPS lap timer for track days that runs in your phone's browser. Works for moto
 - 書き出したファイル（JSON・CSV）には、走った場所と時刻が入っています。人に渡すときは注意してください。
 
 ### 制限
-- 画面を消したり、他のアプリに切り替えたりすると、記録が止まります（Webアプリの制約）。
+- 画面を消したり、他のアプリに切り替えたりすると、記録が止まります（Webアプリの制約）。長時間の記録は充電しながら使い、iPhoneは「設定 › 画面表示と明るさ › 自動ロック」を「なし」にしてください（走ったあとは元に戻してください）。
 - 外付けのGPSや、車両のECUのデータには対応していません。
 - iPhoneのブラウザは、しばらく開かないサイトのデータを消すことがあります。ホーム画面に追加し、定期的にバックアップしてください。
 - 動作の目安：iOS 16.4 以降の Safari、最近の Android の Chrome。
@@ -51,7 +52,8 @@ A GPS lap timer for track days that runs in your phone's browser. Works for moto
 ## English
 
 ### Features
-- **Modes**: Circuit (laps), Drag (standing start; distance and speed times), Segment (point A to point B)
+- **Modes**: Circuit (laps), Drag (standing start; distance and speed times), Segment (point A to point B), Free ride (no track; record road rides for hours)
+- **Free ride**: distance, moving and stopped time, average (moving) and top speed. Splits into legs at rest stops of 3 minutes or more. Parts where GPS was lost are not joined or counted. A power-saving view (black, no G meter) can be turned on while recording.
 - **Tracks**: drive a few laps in recording-only mode, then tap the driven path to place lines (or place the start/finish automatically). You can also paste coordinates from Google Maps; directions are set automatically from a recording. Fine-tune position, rotation and width. Share tracks by QR code, link or file.
 - **G meter**: calculated from GPS for motorcycles, measured with the phone motion sensor for cars.
 - **Analysis**: lap stats (speed, brake and coast time), playback slider, speed/G on the map, two-lap comparison (time delta), G-G diagram
