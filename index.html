@@ -115,6 +115,7 @@ body.recording{--bg:#000;--panel:#000;--sub:#e6e6e6;--line:#fff}
 #gCanvas{width:min(50vw,240px,28vh);background:none;border-radius:50%}
 .gvals{font-size:15px;color:var(--sub);display:flex;flex-direction:column;gap:6px}
 .gvals b{display:block;color:var(--text);font-size:26px;font-variant-numeric:tabular-nums}
+.runBtns{position:relative;z-index:41} /* ラップ完了の全画面表示の上に出して、停止ボタンを隠さない */
 .runBtns button{width:100%;padding:20px;font-size:22px;border-radius:16px}
 .hold{position:relative;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
 .hold .fill{position:absolute;inset:0;background:rgba(255,255,255,.28);transform:scaleX(0);transform-origin:left}
@@ -1673,8 +1674,9 @@ class LiveDelta {
     const n = this.p.length, el = p.t - lapStart, P = this.proj(p);
     if (n < 2) return null;
     // ふだんは前回の位置の近くだけを探す。見失ったら全体から探す（ただし経過時間が大きく違う所は除く：周回はスタートとゴールが重なるため）
-    let b = this._near(P, Math.max(0, this.i - 2), Math.min(n - 1, this.i + 30));
-    if (!b || b.d > 40) b = this._near(P, 0, n - 1, t => Math.abs(t - el) < this.total * 0.3);
+    const near = t => Math.abs(t - el) < this.total * 0.3;
+    let b = this._near(P, Math.max(0, this.i - 2), Math.min(n - 1, this.i + 30), near);
+    if (!b || b.d > 40) b = this._near(P, 0, n - 1, near);
     if (!b || b.d > 40) return null;
     this.i = b.i;
     const a = this.p[b.i], c = this.p[b.i + 1], ref = a.t + b.k * (c.t - a.t);
