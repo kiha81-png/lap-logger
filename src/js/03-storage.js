@@ -1,5 +1,5 @@
 // ---------- 保存 ----------
-const APP_VERSION = '4.6.0';
+const APP_VERSION = '4.6.1';
 const SCHEMA = 2;
 // github.io では同じユーザーのページ同士が保存領域を共有するので、公開URL以外（テスト用など）は名前を分ける
 const NS = location.pathname.replace(/[^/]*$/, '') || '/';

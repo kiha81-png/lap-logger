@@ -86,19 +86,11 @@ function rideLines(r) {
   if (r.gapN) out.push(tx('rideGaps', r.gapN, fmtDur(r.gapMs)));
   return out;
 }
-function renderSess() {
-  const s = sessById(recState.sid);
-  if (!s) {
-    recState.view = 'list';
-    return renderRec();
-  }
-  const A = analyze(s),
-    drag = s.mode === 'drag',
+// 記録の詳細：上の集計（GPSの状態、理論ベスト、自己ベスト）
+function sessSummaryHtml(s, A) {
+  const drag = s.mode === 'drag',
     free = isFree(s),
-    best = bestPiece(A),
     pts = s.points;
-  const bl = free ? (A.ride ? fmtDist(A.ride.dist) : '') : sessBest(s);
-  $('#sTitle').textContent = sessName(s) + (bl ? ' – ' + bl : '');
   const dur = pts.length > 1 ? (pts[pts.length - 1].t - pts[0].t) / 1000 : 0;
   const hz = dur ? ((pts.length - 1) / dur).toFixed(1) : '0',
     acc = pts.length ? (pts.reduce((a, p) => a + p.acc, 0) / pts.length).toFixed(1) : '0';
@@ -126,38 +118,45 @@ function renderSess() {
       D = dragMain(s);
     if (pb.times[D] != null) h += `<br>${esc(tx('pbVehDrag', `${distLabel(D)} ${fmtS(pb.times[D])}`))}`;
   }
-  h += '</div>';
-  if (!A.pieces.length) h += `<p class="note">${esc(tx('noLapsYet'))}</p>`;
-  if (!drag && !free && !s.active) {
-    const why = why0(A.det, (s.settings && s.settings.minLap) || DEFAULT_OPT.minLap).lines;
-    if (why.length) h += `<div class="block" id="whyNone"><b>${esc(tx('whyNone'))}</b><br>${why.map(esc).join('<br>')}</div>`;
+  return h + '</div>';
+}
+// 1周（1本・1区間）の見出しと、その下の数字の行
+function pieceText(s, A, pc) {
+  const drag = s.mode === 'drag',
+    free = isFree(s);
+  let title, lines;
+  if (free) {
+    const r = pieceRide(s, pc);
+    title = `${pieceLabel(pc)}  ${tx('rideRange', fmtClock(pc.start), fmtClock(pc.end))}`;
+    lines = rideLines(r);
+  } else if (drag) {
+    const D = dragMain(s);
+    title = `${pieceLabel(pc)}  ${pc.times[D] != null ? distLabel(D) + ' ' + fmtS(pc.times[D]) + tx('sec') : ''}`;
+    lines = Object.keys(pc.times)
+      .sort((a, b) => a - b)
+      .map(d => tx('dragRunLine', d, fmtS(pc.times[d]), Math.round(pc.vAt[d] * spdK())))
+      .concat(Object.keys(pc.spd).map(k => tx('spdTime', k, fmtS(pc.spd[k]), pc.spdUnit || 'km/h')))
+      .concat([tx('maxSpd', Math.round(pc.maxV * spdK()))]);
+  } else {
+    const st = lapStats(s, A, pc);
+    title = `${pieceLabel(pc)}  ${fmtLap(pc.time)}`;
+    lines = [tx('lapStat1', st.vmin.toFixed(1), st.vmax.toFixed(1), st.vavg.toFixed(1))];
+    if (st.hasG) lines.push(tx('lapStat2', st.brake.toFixed(1), st.coast.toFixed(1)));
+    if (pc.splits && pc.splits.length > 1) lines.push(pc.splits.map((v, k) => `S${k + 1} ${fmtSec(v)}`).join('  '));
   }
-  A.pieces.forEach((pc, i) => {
-    let title, lines;
-    if (free) {
-      const r = pieceRide(s, pc);
-      title = `${pieceLabel(pc)}  ${tx('rideRange', fmtClock(pc.start), fmtClock(pc.end))}`;
-      lines = rideLines(r);
-    } else if (drag) {
-      const D = dragMain(s);
-      title = `${pieceLabel(pc)}  ${pc.times[D] != null ? distLabel(D) + ' ' + fmtS(pc.times[D]) + tx('sec') : ''}`;
-      lines = Object.keys(pc.times)
-        .sort((a, b) => a - b)
-        .map(d => tx('dragRunLine', d, fmtS(pc.times[d]), Math.round(pc.vAt[d] * spdK())))
-        .concat(Object.keys(pc.spd).map(k => tx('spdTime', k, fmtS(pc.spd[k]), pc.spdUnit || 'km/h')))
-        .concat([tx('maxSpd', Math.round(pc.maxV * spdK()))]);
-    } else {
-      const st = lapStats(s, A, pc);
-      title = `${pieceLabel(pc)}  ${fmtLap(pc.time)}`;
-      lines = [tx('lapStat1', st.vmin.toFixed(1), st.vmax.toFixed(1), st.vavg.toFixed(1))];
-      if (st.hasG) lines.push(tx('lapStat2', st.brake.toFixed(1), st.coast.toFixed(1)));
-      if (pc.splits && pc.splits.length > 1) lines.push(pc.splits.map((v, k) => `S${k + 1} ${fmtSec(v)}`).join('  '));
-    }
-    const exable = pc.kind === 'lap' || pc.kind === 'run';
-    h += `<div class="lcard${pc === best ? ' best' : ''}${pc.excl ? ' excl' : ''}" data-pi="${i}" role="button" tabindex="0"><div class="lt">${esc(title)}${pc.warn ? '⚠' : ''}${pc === best ? ' <span class="bestc">★</span>' : ''}${pc.excl ? esc(tx('exclTag')) : ''}</div>
-      <div class="ls">${lines.map(esc).join('<br>')}</div><span class="det">${esc(tx('detail'))}</span>${exable ? `<button class="ex" data-ex="${i}">${esc(tx(pc.excl ? 'unexcl' : 'excl'))}</button>` : ''}</div>`;
-  });
-  h += `<p class="note">${esc(tx(free ? 'rideDef' : 'statDef'))}</p>
+  return { title, lines };
+}
+function pieceCardHtml(s, A, pc, i, best) {
+  const { title, lines } = pieceText(s, A, pc);
+  const exable = pc.kind === 'lap' || pc.kind === 'run';
+  return `<div class="lcard${pc === best ? ' best' : ''}${pc.excl ? ' excl' : ''}" data-pi="${i}" role="button" tabindex="0"><div class="lt">${esc(title)}${pc.warn ? '⚠' : ''}${pc === best ? ' <span class="bestc">★</span>' : ''}${pc.excl ? esc(tx('exclTag')) : ''}</div>
+    <div class="ls">${lines.map(esc).join('<br>')}</div><span class="det">${esc(tx('detail'))}</span>${exable ? `<button class="ex" data-ex="${i}">${esc(tx(pc.excl ? 'unexcl' : 'excl'))}</button>` : ''}</div>`;
+}
+// 記録の詳細：下のボタン（計算し直し、書き出し、削除、Google）
+function sessActionsHtml(s) {
+  const drag = s.mode === 'drag',
+    free = isFree(s);
+  return `<p class="note">${esc(tx(free ? 'rideDef' : 'statDef'))}</p>
     ${free ? '' : `<button class="wide" data-sa="recalc">${esc(tx('recalc'))}</button>`}
     ${
       drag || free
@@ -174,7 +173,27 @@ function renderSess() {
     ${drag || free ? '' : `<button class="wide" style="margin-top:8px" data-sa="auto">${esc(tx('autoFromThis'))}</button>`}
     <div class="row eq"><button data-sa="csv">CSV</button><button data-sa="json">JSON</button><button data-sa="del" class="danger">${esc(tx('del'))}</button></div>
     </details><button class="wide" style="margin-top:8px" data-sa="gs">${esc(tx('gsSendOne'))}</button><p class="note" id="gsSessNote"></p>`;
-  $('#sBody').innerHTML = h;
+}
+function renderSess() {
+  const s = sessById(recState.sid);
+  if (!s) {
+    recState.view = 'list';
+    return renderRec();
+  }
+  const A = analyze(s),
+    drag = s.mode === 'drag',
+    free = isFree(s),
+    best = bestPiece(A);
+  const bl = free ? (A.ride ? fmtDist(A.ride.dist) : '') : sessBest(s);
+  $('#sTitle').textContent = sessName(s) + (bl ? ' – ' + bl : '');
+  let h = sessSummaryHtml(s, A);
+  if (!A.pieces.length) h += `<p class="note">${esc(tx('noLapsYet'))}</p>`;
+  if (!drag && !free && !s.active) {
+    const why = why0(A.det, (s.settings && s.settings.minLap) || DEFAULT_OPT.minLap).lines;
+    if (why.length) h += `<div class="block" id="whyNone"><b>${esc(tx('whyNone'))}</b><br>${why.map(esc).join('<br>')}</div>`;
+  }
+  h += A.pieces.map((pc, i) => pieceCardHtml(s, A, pc, i, best)).join('');
+  $('#sBody').innerHTML = h + sessActionsHtml(s);
   renderGsSess();
 }
 $('#sBody').addEventListener('keydown', e => {

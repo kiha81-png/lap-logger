@@ -392,6 +392,68 @@ async function wakeOn() {
     w.className = 'warnText';
   }
 }
+// 新しい記録の入れ物（コースと設定は、始めた時点の写しを持つ）
+function newSession(mode, veh, course) {
+  const s = {
+    id: 's' + Date.now(),
+    startedAt: Date.now(),
+    mode,
+    vehicle: vehSnap(veh),
+    course: course ? clone(course) : null,
+    settings: { minLap: settings.minLap, maxAcc: settings.maxAcc, dragDist: settings.dragDist.slice(), unit: settings.unit },
+    points: [],
+    laps: [],
+    active: true
+  };
+  if (veh.type === 'car') s.gs = [];
+  return s;
+}
+// 走行中画面の枠の中身を、種類（フリー走行・ドラッグ・コース）に合わせて最初の状態にする
+function initLiveCells(s, veh, course) {
+  const mode = s.mode;
+  ['#lastLap', '#bestLap', '#secTime', '#gLat', '#gLon'].forEach(k => ($(k).textContent = '--'));
+  $('#lastDiff').textContent = '';
+  $('#secDiff').textContent = '';
+  $('#dragList').innerHTML = '';
+  $('#lblBest').textContent = tx('pb');
+  if (mode === 'free') {
+    // 大きな表示は経過時間（renderMain）。下の4つは、今の速度・距離・最高速・平均（走行中）
+    $('#curLap').textContent = '--';
+    $('#lapNo').textContent = tx('freeSpeed');
+    $('#lblLast').textContent = tx('freeDist');
+    $('#lblBest').textContent = tx('freeMax');
+    $('#secLbl').textContent = tx('freeAvg');
+    $('#lastLap').textContent = fmtDist(0);
+    $('#cellSec').hidden = false;
+    $('#cellCur').hidden = false;
+    $('#runLabel').textContent = `${s.vehicle.name}・${tx('modeFree')}`;
+  } else if (mode === 'drag') {
+    live.dragMain = Math.max(...s.settings.dragDist);
+    live.dragPb = dragBest(veh.id);
+    $('#curLap').textContent = '0.00';
+    $('#lapNo').textContent = tx('dragStop');
+    $('#lblLast').textContent = `${tx('lastRun')}  ${distLabel(live.dragMain)}`;
+    $('#secLbl').textContent = `0-${spdTargets()[0]}${U()}`;
+    $('#cellSec').hidden = false;
+    $('#cellCur').hidden = true;
+    if (live.dragPb.times[live.dragMain] != null) $('#bestLap').textContent = fmtS(live.dragPb.times[live.dragMain]);
+    $('#runLabel').textContent = `${s.vehicle.name}・${tx('modeDrag')} ${s.settings.dragDist.map(distLabel).join('/')}`;
+  } else {
+    const pb = bestFor(veh.id, course);
+    live.pbLap = pb.lap;
+    live.pbSp = pb.sp.slice();
+    $('#bestLap').textContent = fmtLap(pb.lap);
+    $('#curLap').textContent = '-:--.-';
+    $('#lapNo').textContent = !rec.det ? tx('recordOnly') : course.type === 'segment' ? tx('segWait') : tx('outLap'); // 小さな枠には短い名前。大きい表示では説明つきにする
+    $('#lblLast').textContent = course.type === 'segment' ? tx('lastRun') : tx('lastLap');
+    $('#secLbl').textContent = tx('sector');
+    $('#cellSec').hidden = nSecOf(course) < 2;
+    $('#cellCur').hidden = false;
+    const br = rec.det ? bestRef(veh.id, course) : null;
+    live.ref = br ? makeRef(br.s.points, br.l) : null;
+    $('#runLabel').textContent = `${s.vehicle.name}・${course.name}`;
+  }
+}
 async function startRec() {
   if (rec.on || !ready) return;
   if (!consented()) {
@@ -444,18 +506,7 @@ async function startRec() {
   }
   if (veh.type === 'car' && !veh.cal && !confirm(tx('calNeededConfirm'))) return;
   if (rec.on) return;
-  const s = {
-    id: 's' + Date.now(),
-    startedAt: Date.now(),
-    mode,
-    vehicle: vehSnap(veh),
-    course: course ? clone(course) : null,
-    settings: { minLap: settings.minLap, maxAcc: settings.maxAcc, dragDist: settings.dragDist.slice(), unit: settings.unit },
-    points: [],
-    laps: [],
-    active: true
-  };
-  if (veh.type === 'car') s.gs = [];
+  const s = newSession(mode, veh, course);
   rec.session = s;
   rec.on = true;
   rec.lastSave = rec.startedAt = Date.now();
@@ -477,48 +528,7 @@ async function startRec() {
   Object.assign(gm, { trail: [], cur: null, max: veh.type === 'car' ? 30 : 6 });
   Object.assign(mo, { basis, f: 0, l: 0, lastT: 0, lastStore: 0, count: 0 });
   if (basis) motionListen(true);
-  ['#lastLap', '#bestLap', '#secTime', '#gLat', '#gLon'].forEach(k => ($(k).textContent = '--'));
-  $('#lastDiff').textContent = '';
-  $('#secDiff').textContent = '';
-  $('#dragList').innerHTML = '';
-  $('#lblBest').textContent = tx('pb');
-  if (mode === 'free') {
-    // 大きな表示は経過時間（renderMain）。下の4つは、今の速度・距離・最高速・平均（走行中）
-    $('#curLap').textContent = '--';
-    $('#lapNo').textContent = tx('freeSpeed');
-    $('#lblLast').textContent = tx('freeDist');
-    $('#lblBest').textContent = tx('freeMax');
-    $('#secLbl').textContent = tx('freeAvg');
-    $('#lastLap').textContent = fmtDist(0);
-    $('#cellSec').hidden = false;
-    $('#cellCur').hidden = false;
-    $('#runLabel').textContent = `${s.vehicle.name}・${tx('modeFree')}`;
-  } else if (mode === 'drag') {
-    live.dragMain = Math.max(...s.settings.dragDist);
-    live.dragPb = dragBest(veh.id);
-    $('#curLap').textContent = '0.00';
-    $('#lapNo').textContent = tx('dragStop');
-    $('#lblLast').textContent = `${tx('lastRun')}  ${distLabel(live.dragMain)}`;
-    $('#secLbl').textContent = `0-${spdTargets()[0]}${U()}`;
-    $('#cellSec').hidden = false;
-    $('#cellCur').hidden = true;
-    if (live.dragPb.times[live.dragMain] != null) $('#bestLap').textContent = fmtS(live.dragPb.times[live.dragMain]);
-    $('#runLabel').textContent = `${s.vehicle.name}・${tx('modeDrag')} ${s.settings.dragDist.map(distLabel).join('/')}`;
-  } else {
-    const pb = bestFor(veh.id, course);
-    live.pbLap = pb.lap;
-    live.pbSp = pb.sp.slice();
-    $('#bestLap').textContent = fmtLap(pb.lap);
-    $('#curLap').textContent = '-:--.-';
-    $('#lapNo').textContent = !rec.det ? tx('recordOnly') : course.type === 'segment' ? tx('segWait') : tx('outLap'); // 小さな枠には短い名前。大きい表示では説明つきにする
-    $('#lblLast').textContent = course.type === 'segment' ? tx('lastRun') : tx('lastLap');
-    $('#secLbl').textContent = tx('sector');
-    $('#cellSec').hidden = nSecOf(course) < 2;
-    $('#cellCur').hidden = false;
-    const br = rec.det ? bestRef(veh.id, course) : null;
-    live.ref = br ? makeRef(br.s.points, br.l) : null;
-    $('#runLabel').textContent = `${s.vehicle.name}・${course.name}`;
-  }
+  initLiveCells(s, veh, course);
   $('#gbox').hidden = !settings.liveG;
   layoutCells();
   document.body.classList.add('recording');
