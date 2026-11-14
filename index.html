@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0b0d10">
 <!-- 外部との通信は、設定で「Googleに保存」を使うときの Apps Script だけを許す（それ以外はこの端末から出さない） -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; connect-src https://script.google.com https://script.googleusercontent.com; font-src 'none'; frame-src 'none'; worker-src 'self'; manifest-src 'self'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
@@ -47,11 +47,13 @@ h4{margin:0 0 6px;font-size:13px;color:var(--sub);letter-spacing:.08em}
 #updBar button{padding:8px 14px}
 .dueBox:not([hidden]){display:flex;align-items:center;gap:10px;background:#3a3000;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14px}
 .dueBox button{flex:0 0 auto;padding:8px 12px}
+html,body{touch-action:manipulation}
 canvas{display:block;width:100%;background:var(--panel);border-radius:14px;touch-action:pan-y}
 #cPreview{touch-action:none;cursor:crosshair}
 
-nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#10141a;border-top:1px solid var(--line);
-  padding-bottom:env(safe-area-inset-bottom);z-index:10}
+/* 下に40px はみ出させて、iPhone のホーム画面アプリで画面の下に隙間が出ても背景で埋める（ボタンの位置は変わらない） */
+nav{position:fixed;bottom:-40px;left:0;right:0;display:flex;background:#10141a;border-top:1px solid var(--line);
+  padding-bottom:calc(40px + env(safe-area-inset-bottom));z-index:10}
 nav button{flex:1;background:none;border-radius:0;color:var(--sub);font-size:12px;padding:8px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px}
 nav svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 nav button.on{color:var(--accent)}
@@ -236,6 +238,23 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
   .runBtns button{padding:14px;font-size:18px}
   #lapFlash .lfD{font-size:clamp(64px,36vh,240px)}
   #lapFlash .lfT{font-size:clamp(32px,15vh,110px)}
+}
+/* 走行中の数字が枠からはみ出さないように、枠の幅に合わせて字を小さくする */
+.cell,.runMain{container-type:inline-size}
+.runMain{min-width:0}
+.val,.diff,.big{overflow:hidden;text-overflow:clip}
+.mainSub{white-space:normal;overflow-wrap:anywhere;max-width:100%}
+@supports (width:1cqi){
+  .val{font-size:min(clamp(28px,9vw,56px),21cqi)}
+  .diff{font-size:min(clamp(20px,6vw,36px),16cqi)}
+  .big{font-size:min(clamp(56px,19vw,150px),22cqi)}
+  .big.short{font-size:min(clamp(64px,27vw,200px),30cqi)}
+  @media (orientation:landscape){
+    .val{font-size:min(clamp(22px,8vh,48px),21cqi)}
+    .diff{font-size:min(clamp(14px,5vh,28px),16cqi)}
+    .big{font-size:min(clamp(40px,22vh,150px),22cqi)}
+    .big.short{font-size:min(clamp(48px,32vh,220px),30cqi)}
+  }
 }
 </style>
 </head>
@@ -472,7 +491,15 @@ const I18N = {
     detail: '詳細', recalc: '今の設定で再計算', recalcConfirm: n => `コース「${n}」と今の設定で計算し直しますか？（GPSとセンサーの記録はそのまま残ります）`,
     recalcDrag: '今のドラッグ設定（距離）と車両設定で計算し直しますか？', recalcActive: '記録中は再計算できません。', courseGone: '元のコースが見つかりません。',
     autoFromThis: 'この記録からコースの向きを決める', del: '削除', delConfirm: d => `${d} の記録を削除しますか？元に戻せません。`, delActive: '記録中のデータは削除できません。',
-    noLapsYet: '完了したラップがありません', dragRunLine: (d, t, v) => `${distLabel(d)}  ${t}秒  ${v}${U()}`, spdTime: (s, t, u) => `0-${s}${u}  ${t}秒`, maxSpd: v => `最高 ${v} ${U()}`,
+    noLapsYet: '完了したラップがありません',
+    whyNone: '0周の理由', whyFar: (d, w) => `スタートライン（コントロールライン）にいちばん近づいたのは約${d}でした。ラインの長さは${w}mなので、ラインの上を通っていません。コース画面でラインを走ったところへ動かしてから「今の設定で再計算」を押してください。`,
+    whyRevOnly: n => `スタートラインを逆向きにだけ通っています（${n}回）。ラインの向きが逆の可能性があります。コース画面でラインを180°回してから「今の設定で再計算」を押してください。`,
+    whyOnce: '周回は、スタートラインを進行方向に2回通ってはじめて1周と数えます。1回目の通過で計測が始まり（それまではアウトラップ）、2回目で1周です。この記録で進行方向に通ったのは1回だけでした。',
+    whyOnceRev: n => `逆向きの通過も${n}回ありました。行きと帰りで同じ道を通る場所にラインがあると、1周で1回しか数えられません。1周して戻ってくる道のうち、1周で1回だけ同じ向きに通る場所にラインを置いてください。ピットを出て1周して戻るだけなら、コースの種類を「区間」にして、スタートとゴールを置く方法もあります。`,
+    whyNoCross: '走った線はスタートラインの近くを通っていますが、ラインを横切っていません。ラインの長さ（幅）を広げるか、位置を直してください。',
+    whySlow: n => `時速${Math.round(MIN_CROSS_V * 3.6)}km未満でラインを通った${n}回は、止まっているときのGPSの揺れとみなして数えていません。`,
+    whyShort: (n, m) => `最短ラップ（${m}秒）より短い${n}回の通過は、ラインを二度踏んだとみなして数えていません。設定の「最短ラップ」を確かめてください。`,
+    revCross: 'スタートラインを逆向きに通りました（数えません）', dragRunLine: (d, t, v) => `${distLabel(d)}  ${t}秒  ${v}${U()}`, spdTime: (s, t, u) => `0-${s}${u}  ${t}秒`, maxSpd: v => `最高 ${v} ${U()}`,
     importBad: 'このアプリで書き出した記録ではありません。', importParse: 'JSONとして読めませんでした。', importDup: '同じ記録がすでにあります。上書きしますか？', importOk: '読み込みました。',
     compareNone: '比較なし', compareWith: x => `比較：${x}`, rdTime: '経過', rdSector: 'セクター', rdSpeed: '速度', rdLat: '緯度', rdLon: '経度', rdHdg: '向き', rdDelta: '比較との差',
     map: '走行ライン', speedGraph: '速度（距離）', deltaGraph: '比較とのタイム差（上が遅い）', gGraph: 'G（距離）', ggTitle: 'G-G図（上：加速、下：ブレーキ、右：右コーナー）',
@@ -599,7 +626,15 @@ const I18N = {
     detail: 'DETAIL', recalc: 'Recalculate with current settings', recalcConfirm: n => `Recalculate with track "${n}" and the current settings? (Raw GPS/sensor data is kept.)`,
     recalcDrag: 'Recalculate with the current drag distances and vehicle settings?', recalcActive: 'Cannot recalculate while recording.', courseGone: 'The original track no longer exists.',
     autoFromThis: 'Set line directions from this recording', del: 'Delete', delConfirm: d => `Delete the recording from ${d}? This cannot be undone.`, delActive: 'Cannot delete a recording in progress.',
-    noLapsYet: 'No completed laps', dragRunLine: (d, t, v) => `${distLabel(d)}  ${t} s  ${v} ${U()}`, spdTime: (s, t, u) => `0-${s} ${u}  ${t} s`, maxSpd: v => `Top ${v} ${U()}`,
+    noLapsYet: 'No completed laps',
+    whyNone: 'Why 0 laps', whyFar: (d, w) => `The closest the recording came to the start/finish line was about ${d}, but the line is only ${w} m long, so it was never crossed. Move the line onto your driving line in Tracks, then tap "Recalculate with current settings".`,
+    whyRevOnly: n => `The start/finish line was only crossed in the wrong direction (${n} times). The line direction may be reversed: rotate it 180° in Tracks, then recalculate.`,
+    whyOnce: 'A lap is counted when you cross the start/finish line twice in the direction of travel: the first crossing starts timing (the out lap before it is not a lap) and the second completes lap 1. This recording crossed it in the direction of travel only once.',
+    whyOnceRev: n => `It was also crossed ${n} time(s) in the other direction. If the line sits on road you use both going out and coming back, it can only count once per lap. Put it where each lap passes exactly once in the same direction. If you only leave the pit, do one lap and come back, a Segment track with a start and a finish line also works.`,
+    whyNoCross: 'The recording passes near the start/finish line but never crosses it. Make the line longer or move it.',
+    whySlow: n => `${n} crossing(s) slower than ${Math.round(MIN_CROSS_V * 3.6)} km/h were ignored as GPS drift while stopped.`,
+    whyShort: (n, m) => `${n} crossing(s) came sooner than the minimum lap (${m} s) and were ignored as double crossings. Check "Minimum lap" in Settings.`,
+    revCross: 'Crossed the start/finish line in the wrong direction (not counted)', dragRunLine: (d, t, v) => `${distLabel(d)}  ${t} s  ${v} ${U()}`, spdTime: (s, t, u) => `0-${s} ${u}  ${t} s`, maxSpd: v => `Top ${v} ${U()}`,
     importBad: 'This is not a recording exported from this app.', importParse: 'Could not read the file as JSON.', importDup: 'This recording already exists. Overwrite?', importOk: 'Imported.',
     compareNone: 'No comparison', compareWith: x => `Compare: ${x}`, rdTime: 'Time', rdSector: 'Sector', rdSpeed: 'Speed', rdLat: 'Latitude', rdLon: 'Longitude', rdHdg: 'Heading', rdDelta: 'Delta',
     map: 'Track map', speedGraph: 'Speed vs distance', deltaGraph: 'Time delta vs comparison (up = slower)', gGraph: 'G vs distance', ggTitle: 'G-G diagram (up: accel, down: brake, right: right turn)',
@@ -682,6 +717,19 @@ ${m} of them belong to another track and will move to this track (their old resu
 
 // ---------- 共通 ----------
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+// iPhone：ページ全体の拡大（ダブルタップ・ピンチ）を止める。図の拡大・ずらしは指の位置（pointer）で別に扱っているので影響しない
+['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+// iPhone：キーボードを閉じたあとや画面の高さが変わったあと、下のバーが画面の途中に取り残されることがある。
+// 入力中でなければ、バーを置き直して位置を計算し直させる
+function renav(){
+  const n = document.querySelector('nav'); if (!n) return;
+  const a = document.activeElement; if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  n.style.display = 'none'; void n.offsetHeight; n.style.display = '';
+  window.scrollTo(window.scrollX, window.scrollY);
+}
+document.addEventListener('focusout', () => setTimeout(renav, 250));
+if (window.visualViewport) visualViewport.addEventListener('resize', () => setTimeout(renav, 100));
+window.addEventListener('orientationchange', () => setTimeout(renav, 300));
 const R = 6371008.8, D2R = Math.PI / 180, G0 = 9.80665;
 const MIN_CROSS_V = 4;                 // m/s。これ未満のライン通過は数えない（停車中の GPS の揺れ対策）
 const STILL_V = 0.8;                  // m/s。これ未満は停止とみなす
@@ -747,7 +795,7 @@ function parseLatLon(text){
 }
 
 // ---------- 保存 ----------
-const APP_VERSION = '4.5.0';
+const APP_VERSION = '4.5.1';
 const SCHEMA = 2;
 // github.io では同じユーザーのページ同士が保存領域を共有するので、公開URL以外（テスト用など）は名前を分ける
 const NS = location.pathname.replace(/[^/]*$/, '') || '/';
@@ -974,6 +1022,18 @@ function lineName(c, i){
   return tx('lnSector', i);
 }
 const nSecOf = c => c.type === 'segment' ? c.lines.length - 1 : c.lines.length;
+// 周回コースで1周もできなかった理由（判定の記録から）。説明の文の配列を返す
+function whyNoLaps(det, minLap){
+  const g = det && det.diag; if (!g || !det.loop || det.laps.length) return [];
+  const out = [];
+  if (g.near > g.w / 2 + 5 && !g.fwd && !g.rev) out.push(tx('whyFar', g.near >= 1000 ? fmtDist(g.near) : Math.round(g.near) + 'm', Math.round(g.w)));
+  else if (!g.fwd && g.rev) out.push(tx('whyRevOnly', g.rev));
+  else if (g.fwd <= 1 && (g.fwd || g.rev)){ out.push(tx('whyOnce')); if (g.rev) out.push(tx('whyOnceRev', g.rev)); }
+  else if (!g.fwd && !g.slow) out.push(tx('whyNoCross'));
+  if (g.slow) out.push(tx('whySlow', g.slow));
+  if (g.short) out.push(tx('whyShort', g.short, minLap));
+  return out;
+}
 function courseProblem(c){
   if (!c) return tx('probNoCourse');
   if (c.type === 'segment' && c.lines.length < 2) return tx('probSegLines');
@@ -1000,11 +1060,15 @@ class LapDetector {
     this.dir = course.lines.map(l => num(l.hdg) ? -1 : 0);
     this.prev = null; this.lapStart = null; this.lastSplit = 0; this.next = 1;
     this.splits = []; this.warn = false; this.laps = [];
+    // 0周のときに理由を説明するための記録：コントロールラインの通過（向き・遅すぎ・短すぎ）と、いちばん近づいた距離
+    this.diag = { fwd: 0, rev: 0, slow: 0, short: 0, near: Infinity, w: course.lines[0].w };
   }
   push(p){
     const ev = [], xy = this.proj(p), cur = { t: p.t, x: xy.x, y: xy.y, v: p.v };
     const pr = this.prev;
     this.prev = cur;
+    const L0 = this.lines[0], dg = this.diag, dn = Math.hypot(cur.x - L0.c.x, cur.y - L0.c.y);
+    if (dn < dg.near) dg.near = dn;
     if (!pr || cur.t <= pr.t) return ev;
     const gap = cur.t - pr.t > 3000;
     if (gap && this.lapStart) this.warn = true;
@@ -1012,9 +1076,14 @@ class LapDetector {
     for (let i = 0; i < this.n; i++){
       if (i > 0 && (!this.lapStart || i < this.next)) continue;
       const L = this.lines[i], h = segCross(pr, cur, L.a, L.b);
-      if (!h || (this.dir[i] && h.sign !== this.dir[i])) continue;
+      if (!h) continue;
       const v = pr.v + h.t * (cur.v - pr.v);
-      if (v < MIN_CROSS_V) continue;
+      if (this.dir[i] && h.sign !== this.dir[i]){
+        if (i === 0 && v >= MIN_CROSS_V){ dg.rev++; ev.push({ type: 'rev' }); }
+        continue;
+      }
+      if (v < MIN_CROSS_V){ if (i === 0) dg.slow++; continue; }
+      if (i === 0) dg.fwd++;
       const x = pr.x + h.t * (cur.x - pr.x), y = pr.y + h.t * (cur.y - pr.y);
       hits.push({ i, sign: h.sign, v, t: pr.t + h.t * (cur.t - pr.t), ll: this.proj.inv({ x, y }) });
     }
@@ -1025,7 +1094,7 @@ class LapDetector {
   _hit(h, gap, ev){
     if (h.i === 0){
       if (this.loop && this.lapStart){
-        if (h.t - this.lapStart.t < this.opt.minLap * 1000) return;
+        if (h.t - this.lapStart.t < this.opt.minLap * 1000){ this.diag.short++; return; }
         this._split(this.n, h, ev);
         this._finish(h, ev);
       }
@@ -1804,7 +1873,7 @@ function renderMain(){
     const el = Date.now() - rec.startedAt;
     lbl = tx('freeTimes', fmtDur(live.free.mov), fmtDur(Math.max(0, el - live.free.mov))); val = fmtDur(el);
   }
-  if (val == null){ lbl = $('#lapNo').textContent; val = $('#curLap').textContent; }
+  if (val == null){ lbl = $('#lapNo').textContent; val = $('#curLap').textContent; if (lbl === tx('outLap')) lbl = tx('outLapWait'); }
   setText($('#mainLbl'), lbl); setText($('#mainSub'), sub); setText(mv, val);
   const c = 'big' + (val.length <= 5 ? ' short' : '') + (cls ? ' ' + cls : '');
   if (mv.className !== c) mv.className = c;
@@ -1865,9 +1934,11 @@ function layoutCells(){
 function handleEvents(evs){
   const loop = rec.session.course.type !== 'segment';
   for (const e of evs){
+    if (e.type === 'rev'){ setNote(tx('revCross'), true); continue; }
     if (e.type === 'start'){
       live.lapStart = e.t; live.delta = null;
       if (live.ref) live.ref.reset();
+      if ($('#runNote').textContent === tx('revCross')) setNote(tx('recNote'));
       $('#lapNo').textContent = loop ? tx('lapN', e.n) : tx('segRun');
     } else if (e.type === 'lap'){
       const t = e.lap.time, pb = live.pbLap, d = $('#lastDiff'), best = !e.lap.warn && pb != null && t < pb;
@@ -2002,7 +2073,7 @@ async function startRec(){
     live.pbLap = pb.lap; live.pbSp = pb.sp.slice();
     $('#bestLap').textContent = fmtLap(pb.lap);
     $('#curLap').textContent = '-:--.-';
-    $('#lapNo').textContent = !rec.det ? tx('recordOnly') : course.type === 'segment' ? tx('segWait') : tx('outLapWait');
+    $('#lapNo').textContent = !rec.det ? tx('recordOnly') : course.type === 'segment' ? tx('segWait') : tx('outLap'); // 小さな枠には短い名前。大きい表示では説明つきにする
     $('#lblLast').textContent = course.type === 'segment' ? tx('lastRun') : tx('lastLap'); $('#secLbl').textContent = tx('sector');
     $('#cellSec').hidden = nSecOf(course) < 2; $('#cellCur').hidden = false;
     const br = rec.det ? bestRef(veh.id, course) : null;
@@ -2147,6 +2218,10 @@ function renderSess(){
   }
   h += '</div>';
   if (!A.pieces.length) h += `<p class="note">${esc(tx('noLapsYet'))}</p>`;
+  if (!drag && !free && !s.active){
+    const why = whyNoLaps(A.det, (s.settings && s.settings.minLap) || DEFAULT_OPT.minLap);
+    if (why.length) h += `<div class="block" id="whyNone"><b>${esc(tx('whyNone'))}</b><br>${why.map(esc).join('<br>')}</div>`;
+  }
   A.pieces.forEach((pc, i) => {
     let title, lines;
     if (free){

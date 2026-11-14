@@ -78,6 +78,18 @@ TESTS = {
   const g = runDet({ course: c, settings: { minLap: 30 }, points: gp });
   return [det.laps.length === 1 && g.laps.some(l => l.warn) && g.laps.some(l => !l.warn), { rev: det.laps.length, gapWarn: g.laps.map(l => l.warn) }];
 }""",
+'why_no_laps': """() => {
+  // 行って戻る道の上にラインがある：進行方向1回・逆向き1回 → 0周で、理由が出る。遠すぎるラインも理由が出る
+  const pts = [], line = { c: toLL(0, 0), hdg: 0, w: 30 };
+  for (let i = 0; i < 40; i++) pts.push({ t: 1.7e12 + i * 1000, ...toLL(2, 200 - 20 * i), v: 20, acc: 4 });
+  for (let i = 0; i < 40; i++) pts.push({ t: 1.7e12 + 40000 + i * 1000, ...toLL(-2, -580 + 20 * i), v: 20, acc: 4 });
+  const d = runDet({ course: migrateCourse({ id: 'tw', name: 't', type: 'circuit', lines: [line] }), settings: { minLap: 30 }, points: pts });
+  const w = whyNoLaps(d, 30);
+  const far = runDet({ course: migrateCourse({ id: 'tf', name: 't', type: 'circuit', lines: [{ c: toLL(5000, 0), hdg: 0, w: 30 }] }), settings: { minLap: 30 }, points: pts });
+  const wf = whyNoLaps(far, 30);
+  const ok = d.laps.length === 0 && d.diag.fwd === 1 && d.diag.rev === 1 && w.length === 2 && w[1] === tx('whyOnceRev', 1) && wf.length === 1 && wf[0].includes('5.0');
+  return [ok, { diag: d.diag, w, wf }];
+}""",
 'segment': """() => {
   const pts = []; for (let i = 0; i < 50; i++) pts.push({ t: 1.7e12 + i * 1000, ...toLL(0, -100 + 30 * i), v: 30, acc: 4 });
   const c = migrateCourse({ id: 'ts', name: 't', type: 'segment', lines: [{ c: toLL(0, 0), hdg: 0, w: 30 }, { c: toLL(0, 500), hdg: 0, w: 30 }, { c: toLL(0, 1000), hdg: 0, w: 30 }] });
