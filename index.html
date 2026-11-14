@@ -48,6 +48,8 @@ h4{margin:0 0 6px;font-size:13px;color:var(--sub);letter-spacing:.08em}
 .dueBox:not([hidden]){display:flex;align-items:center;gap:10px;background:#3a3000;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14px}
 .dueBox button{flex:0 0 auto;padding:8px 12px}
 html,body{touch-action:manipulation}
+/* iPhone のホーム画面アプリは、スクロールしない短いページだと下のバーの下に隙間ができる。常に1pxだけスクロールできる高さにする */
+html{min-height:calc(100% + 1px)}
 canvas{display:block;width:100%;background:var(--panel);border-radius:14px;touch-action:pan-y}
 #cPreview{touch-action:none;cursor:crosshair}
 
@@ -795,7 +797,7 @@ function parseLatLon(text){
 }
 
 // ---------- 保存 ----------
-const APP_VERSION = '4.5.1';
+const APP_VERSION = '4.5.2';
 const SCHEMA = 2;
 // github.io では同じユーザーのページ同士が保存領域を共有するので、公開URL以外（テスト用など）は名前を分ける
 const NS = location.pathname.replace(/[^/]*$/, '') || '/';
