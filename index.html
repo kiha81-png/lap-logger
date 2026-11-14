@@ -51,8 +51,9 @@ html,body{touch-action:manipulation}
 canvas{display:block;width:100%;background:var(--panel);border-radius:14px;touch-action:pan-y}
 #cPreview{touch-action:none;cursor:crosshair}
 
-nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#10141a;border-top:1px solid var(--line);
-  padding-bottom:env(safe-area-inset-bottom);z-index:10}
+/* 下に40px はみ出させて、iPhone のホーム画面アプリで画面の下に隙間が出ても背景で埋める（ボタンの位置は変わらない） */
+nav{position:fixed;bottom:-40px;left:0;right:0;display:flex;background:#10141a;border-top:1px solid var(--line);
+  padding-bottom:calc(40px + env(safe-area-inset-bottom));z-index:10}
 nav button{flex:1;background:none;border-radius:0;color:var(--sub);font-size:12px;padding:8px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px}
 nav svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 nav button.on{color:var(--accent)}
@@ -718,6 +719,17 @@ ${m} of them belong to another track and will move to this track (their old resu
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 // iPhone：ページ全体の拡大（ダブルタップ・ピンチ）を止める。図の拡大・ずらしは指の位置（pointer）で別に扱っているので影響しない
 ['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+// iPhone：キーボードを閉じたあとや画面の高さが変わったあと、下のバーが画面の途中に取り残されることがある。
+// 入力中でなければ、バーを置き直して位置を計算し直させる
+function renav(){
+  const n = document.querySelector('nav'); if (!n) return;
+  const a = document.activeElement; if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  n.style.display = 'none'; void n.offsetHeight; n.style.display = '';
+  window.scrollTo(window.scrollX, window.scrollY);
+}
+document.addEventListener('focusout', () => setTimeout(renav, 250));
+if (window.visualViewport) visualViewport.addEventListener('resize', () => setTimeout(renav, 100));
+window.addEventListener('orientationchange', () => setTimeout(renav, 300));
 const R = 6371008.8, D2R = Math.PI / 180, G0 = 9.80665;
 const MIN_CROSS_V = 4;                 // m/s。これ未満のライン通過は数えない（停車中の GPS の揺れ対策）
 const STILL_V = 0.8;                  // m/s。これ未満は停止とみなす
