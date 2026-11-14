@@ -1,0 +1,246 @@
+:root{
+  --bg:#0b0d10;--panel:#151a21;--panel2:#1d232c;--line:#2a313b;--text:#f2f4f7;--sub:#9aa3ae;
+  --accent:#2f7bff;--good:#30d158;--bad:#ff453a;--best:#bf5af2;--warn:#ffd60a;--btn:#262d37;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);overscroll-behavior:none;
+  font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;-webkit-text-size-adjust:100%}
+body{padding-top:env(safe-area-inset-top);padding-bottom:calc(70px + env(safe-area-inset-bottom))}
+button,input,select{font:inherit;color:inherit}
+button{background:var(--btn);border:0;border-radius:12px;padding:12px 14px;font-weight:600;cursor:pointer}
+button:active{filter:brightness(1.3)}
+button:disabled{opacity:.45}
+input,select{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;min-width:0;font-size:16px}
+h3{margin:22px 0 8px;font-size:15px;color:var(--sub);letter-spacing:.04em}
+h4{margin:0 0 6px;font-size:13px;color:var(--sub);letter-spacing:.08em}
+.note{color:var(--sub);font-size:14px;line-height:1.6}
+.warnText{color:var(--warn)}
+#homeNote{margin:0 0 10px}#homeNote:empty{display:none}
+#homeFix{margin:0 0 10px}
+details.help{margin:8px 0}details.help summary{color:var(--sub);font-size:14px;padding:8px 0;cursor:pointer}details.help[open] summary{color:var(--text)}
+.row{display:flex;gap:8px;margin:8px 0}
+.row>*{flex:1}
+.row>button{flex:0 0 auto}
+.row.eq>button{flex:1}
+.wide{width:100%}
+.sub{color:var(--sub);font-size:14px}
+.good{color:var(--good)}.bad{color:var(--bad)}.bestc{color:var(--best)}
+.danger{background:#5a1d1a;color:#fff}
+.primary{background:var(--accent);color:#fff}
+#banner{background:#5a4a00;color:#fff;padding:10px 16px;font-size:14px}
+#updBar:not([hidden]){display:flex;align-items:center;justify-content:space-between;gap:10px;background:#12305e;color:#fff;padding:8px 16px;font-size:14px}
+#updBar button{padding:8px 14px}
+.dueBox:not([hidden]){display:flex;align-items:center;gap:10px;background:#3a3000;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:14px}
+.dueBox button{flex:0 0 auto;padding:8px 12px}
+html,body{touch-action:manipulation}
+/* iPhone のホーム画面アプリは、ページが短いと画面の高さを上の余白（時計のあたり）の分だけ短く見積もり、下のバーがその分だけ上にずれる。
+   ページの高さを上の余白の分だけ足して、画面の下まで届かせる */
+html{min-height:calc(100% + env(safe-area-inset-top))}
+canvas{display:block;width:100%;background:var(--panel);border-radius:14px;touch-action:pan-y}
+#cPreview{touch-action:none;cursor:crosshair}
+
+/* 下に40px はみ出させて、iPhone のホーム画面アプリで画面の下に隙間が出ても背景で埋める（ボタンの位置は変わらない） */
+nav{position:fixed;bottom:-40px;left:0;right:0;display:flex;background:#10141a;border-top:1px solid var(--line);
+  padding-bottom:calc(40px + env(safe-area-inset-bottom));z-index:10}
+nav button{flex:1;background:none;border-radius:0;color:var(--sub);font-size:12px;padding:8px 0 10px;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+nav button.on{color:var(--accent)}
+section{display:none;padding:12px 16px;padding-right:max(16px,env(safe-area-inset-right))}
+section.on{display:block}
+.wrap{max-width:760px;margin:0 auto}
+body.recording{padding-bottom:env(safe-area-inset-bottom)}
+body.recording nav{display:none}
+
+/* GPS */
+.gpsPill{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:#2a2f37;font-size:14px;font-weight:700;color:#fff}
+.gpsPill::before{content:"";width:10px;height:10px;border-radius:50%;background:#888}
+.gpsPill.ok{background:#123d22}.gpsPill.ok::before{background:var(--good)}
+.gpsPill.weak{background:#453b00}.gpsPill.weak::before{background:var(--warn)}
+.gpsPill.bad{background:#4a1512}.gpsPill.bad::before{background:var(--bad)}
+
+/* ホーム */
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+.topbar select{max-width:55%;padding:7px 10px;font-size:15px}
+.carousel{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;scrollbar-width:none}
+.carousel::-webkit-scrollbar{display:none}
+.mcard{flex:0 0 100%;scroll-snap-align:center;background:linear-gradient(160deg,#18212d,#0f1318);border:1px solid var(--line);
+  border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.mcard h2{margin:0;font-size:30px;font-weight:900;font-style:italic;letter-spacing:.02em}
+.mcard p{margin:2px 0 0;color:var(--sub);font-size:14px}
+.outline{height:clamp(120px,27vh,300px);background:none}
+.fld{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--sub)}
+.fld select,.fld input{color:var(--text)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--sub)}
+.chips button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dots{display:flex;justify-content:center;gap:10px;margin:10px 0}
+.dots button{width:10px;height:10px;padding:0;border-radius:50%;background:#3a414c}
+.dots button.on{background:#fff}
+.startBtn{width:100%;padding:20px;font-size:22px;border-radius:16px;background:var(--accent);color:#fff;margin-top:10px;letter-spacing:.06em;
+  position:sticky;bottom:calc(78px + env(safe-area-inset-bottom));box-shadow:0 6px 24px rgba(0,0,0,.6)}
+
+/* 計測中（走行中はチラ見するだけなので、大きく・高コントラストに） */
+body.recording{--bg:#000;--panel:#000;--sub:#e6e6e6;--line:#fff}
+#live:not([hidden]){display:flex;flex-direction:column;gap:8px;
+  min-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
+  min-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px)}
+.runHead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.runMain{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;text-align:center}
+#runNote{margin:0}
+.mainLbl{font-size:20px;font-weight:700;color:var(--sub)}
+.big{font-size:clamp(56px,19vw,150px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1.05;letter-spacing:-.02em;white-space:nowrap}
+.big.short{font-size:clamp(64px,27vw,200px)}
+.mainSub{font-size:clamp(24px,8vw,48px);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dragList{font-size:20px;font-variant-numeric:tabular-nums;text-align:center;line-height:1.5}
+.cells{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cell{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:8px 12px;transition:background .3s;min-width:0}
+.cell.span{grid-column:1/-1}
+.cell.flash{background:#34404f;color:#fff}.cell.flash.good{background:#0d5c26;color:#fff}.cell.flash.bad{background:#7a1a14;color:#fff}.cell.flash.bestc{background:#4b1f6e;color:#fff}
+.cell.flash .diff{color:#fff}
+.lbl{font-size:16px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.val{font-size:clamp(28px,9vw,56px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;white-space:nowrap}
+.diff{font-size:clamp(20px,6vw,36px);font-weight:700;font-variant-numeric:tabular-nums;min-height:1.2em;white-space:nowrap}
+.gbox{display:flex;align-items:center;justify-content:center;gap:14px}
+.gbox[hidden]{display:none}
+#gCanvas{width:min(50vw,240px,28vh);background:none;border-radius:50%}
+.gvals{font-size:15px;color:var(--sub);display:flex;flex-direction:column;gap:6px}
+.gvals b{display:block;color:var(--text);font-size:26px;font-variant-numeric:tabular-nums}
+.runBtns{position:relative;z-index:41;display:flex;gap:8px} /* ラップ完了の全画面表示の上に出して、停止ボタンを隠さない */
+.runBtns .hold{flex:1}
+.runBtns button{width:100%;padding:20px;font-size:22px;border-radius:16px}
+#live .runBtns #dimBtn{width:auto;flex:0 0 auto;padding-left:14px;padding-right:14px;font-size:15px;background:var(--btn)}
+/* 省電力表示：黒の上に暗めの文字。有機ELの画面では、黒い部分はほとんど電気を使わない */
+body.dim.recording{--bg:#000;--text:#a8a8a8;--sub:#6e6e6e;--panel:#000}
+body.dim.recording #live{color:var(--text)}
+body.dim.recording #live .gbox{display:none}
+body.dim.recording #live .cell{border:1px solid #1c1c1c}
+body.dim.recording #live .gpsPill{opacity:.6}
+.hold{position:relative;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
+.hold .fill{position:absolute;inset:0;background:rgba(255,255,255,.28);transform:scaleX(0);transform-origin:left}
+.hold.pressing .fill{transform:scaleX(1);transition:transform 1s linear}
+.hold span{position:relative;pointer-events:none}
+/* ラップ完了：数秒だけ画面全体を結果の色にする（触っても下のボタンに届く） */
+#lapFlash:not([hidden]){position:fixed;inset:0;z-index:40;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#1d4fa8;color:#fff;text-align:center;padding:16px;font-variant-numeric:tabular-nums}
+#lapFlash.good{background:#0d6b2c}#lapFlash.bad{background:#a3150c}#lapFlash.bestc{background:#6a1fa0}
+#lapFlash .lfN{font-size:clamp(24px,7vw,48px);font-weight:800}
+#lapFlash .lfD{font-size:clamp(72px,28vw,220px);font-weight:900;line-height:1.05;white-space:nowrap}
+#lapFlash .lfT{font-size:clamp(36px,12vw,96px);font-weight:800;white-space:nowrap}
+
+/* 記録 */
+.rcard,.lcard{display:block;width:100%;text-align:left;background:var(--panel);border-radius:16px;padding:14px;margin:8px 0;position:relative}
+.rmode{display:inline-block;font-size:12px;color:var(--accent);font-weight:800;letter-spacing:.08em}
+.rtitle{display:block;font-size:19px;font-weight:700;margin:2px 0}
+.rbest{position:absolute;right:14px;top:14px;font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
+.rsub{display:block;color:var(--sub);font-size:13px;font-weight:500}
+.hdr{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.back{width:44px;height:44px;border-radius:50%;font-size:24px;padding:0;flex:0 0 auto}
+.htitle{font-size:19px;font-weight:700;line-height:1.3}
+.block{background:var(--panel);border-radius:16px;padding:12px 14px;margin:10px 0;font-size:15px;line-height:1.6}
+.lcard .lt{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.lcard .ls{font-size:14px;color:var(--sub);font-weight:500;line-height:1.5;margin-top:2px;padding-right:72px}
+.lcard .det{position:absolute;right:12px;top:50%;transform:translateY(-50%);border:1px solid #fff;border-radius:8px;padding:6px 10px;font-size:13px}
+.lcard.best{background:#26213a}
+.lcard{cursor:pointer}
+.lcard.excl{opacity:.5}
+.lcard .ex{position:absolute;right:12px;bottom:10px;padding:4px 10px;font-size:12px;border-radius:8px}
+.lcard .det{top:14px;transform:none}
+#consent:not([hidden]){position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px}
+#consent .box{background:var(--panel);border-radius:18px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:18px}
+#consent h2{margin:0 0 10px;font-size:22px}
+#consent ul{padding-left:20px;line-height:1.7;font-size:15px}
+#consent button{width:100%;padding:16px;font-size:18px;margin-top:8px}
+.modal:not([hidden]){position:fixed;inset:0;z-index:49;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal .box{background:var(--panel);border-radius:18px;max-width:480px;width:100%;max-height:90vh;overflow:auto;padding:18px}
+.modal h2{margin:0 0 10px;font-size:20px}.modal p{overflow-wrap:anywhere}
+.modal button{width:100%;padding:14px;margin-top:8px}
+#qrCv{width:auto;max-width:100%;margin:8px auto;background:#fff;border-radius:8px;image-rendering:pixelated;touch-action:auto}
+/* 色覚に配慮した配色 */
+body.cb{--good:#4da3ff;--bad:#ff9f0a;--best:#f0e442}
+/* 屋外向けの高コントラスト表示 */
+body.hc{--bg:#000;--panel:#000;--panel2:#111;--line:#fff;--text:#fff;--sub:#e6e6e6;--btn:#222}
+body.hc .cell,body.hc .block,body.hc .rcard,body.hc .lcard,body.hc .mcard,body.hc .lineCard{border:2px solid #fff}
+body.hc .lbl,body.hc .note{font-size:16px}
+body.hc button{border:2px solid #fff}
+body.hc .lcard.excl{opacity:.8;text-decoration:line-through}
+.player{display:flex;align-items:center;gap:10px;margin:10px 0}
+.player input{flex:1;padding:0;accent-color:var(--accent);background:none;border:0}
+.player button{width:52px;padding:12px 0}
+.readout{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;font-variant-numeric:tabular-nums}
+.readout div{background:var(--panel);border-radius:10px;padding:6px 10px}
+.readout i{display:block;font-style:normal;font-size:12px;color:var(--sub)}
+.readout b{font-size:18px}
+.hrow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:22px 0 8px}
+.hrow h3{margin:0}
+.hrow select{padding:6px 10px;font-size:15px}
+.legend{font-size:13px;color:var(--sub);margin:6px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.grad{display:inline-block;width:110px;height:10px;border-radius:5px}
+.lapGrid{display:grid;gap:0 18px}
+@media (min-width:820px){.lapGrid{grid-template-columns:1.1fr 1fr}}
+
+/* コース */
+.seg{display:flex;gap:0;background:var(--panel2);border-radius:12px;padding:3px;margin:8px 0}
+.seg button,.seg label{flex:1;background:none;border-radius:10px;padding:10px;text-align:center;color:var(--sub);display:flex;align-items:center;justify-content:center;gap:8px}
+.seg button.on{background:var(--accent);color:#fff}
+.lineCard{background:var(--panel);border-radius:14px;padding:10px 12px;margin:10px 0}
+.lineCard.sel{outline:2px solid var(--accent)}
+.lineHead{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer}
+.lineHead .sub{text-align:right}
+.lineBody{margin-top:8px}
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.pad button{padding:10px 4px;font-size:14px}
+.pad .w2{grid-column:span 2}
+.pad .w4{grid-column:span 4}
+label.f{display:block;margin:10px 0;font-size:14px;color:var(--sub)}
+label.f input{display:block;width:100%;margin-top:4px;color:var(--text)}
+.chk{display:flex;align-items:center;gap:8px;background:var(--panel);border-radius:10px;padding:10px 12px;font-size:16px}
+input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0}
+
+/* 横画面 */
+@media (orientation:landscape){
+  body{padding-bottom:0;padding-left:calc(84px + env(safe-area-inset-left))}
+  body.recording{padding-left:env(safe-area-inset-left);padding-bottom:0}
+  nav{top:0;bottom:0;right:auto;width:calc(84px + env(safe-area-inset-left));flex-direction:column;justify-content:center;
+    border-top:0;border-right:1px solid var(--line);padding:env(safe-area-inset-top) 0 0 env(safe-area-inset-left)}
+  nav button{flex:0 0 auto;padding:14px 0}
+  .startBtn{bottom:10px}
+  .mcard{display:grid;grid-template-columns:1.2fr 1fr;grid-template-rows:auto 1fr;gap:8px 16px;align-items:start}
+  .mcard .outline{grid-row:1/3;grid-column:1;height:clamp(140px,52vh,320px)}
+  #live:not([hidden]){display:grid;grid-template-columns:1.25fr 1fr;gap:6px 16px;align-items:stretch;
+    grid-template-areas:"head head" "main cells" "g btns" "note note";grid-template-rows:auto 1fr auto auto}
+  .runHead{grid-area:head}.runMain{grid-area:main}.cells{grid-area:cells}.gbox{grid-area:g}.runBtns{grid-area:btns;align-self:end}.cells{align-self:start}#runNote{grid-area:note}
+  .big{font-size:clamp(40px,22vh,150px)}
+  .big.short{font-size:clamp(48px,32vh,220px)}
+  .mainSub{font-size:clamp(20px,9vh,48px)}
+  .mainLbl{font-size:17px}
+  .dragList{font-size:16px}
+  .cell{padding:4px 10px}
+  .lbl{font-size:14px}
+  .val{font-size:clamp(22px,8vh,48px)}
+  .diff{font-size:clamp(14px,5vh,28px)}
+  .gbox{gap:10px;flex-direction:row}
+  #gCanvas{width:min(26vh,18vw)}
+  .gvals{flex-direction:row;gap:14px}
+  .gvals b{display:inline;font-size:20px;margin-left:4px}
+  .runBtns button{padding:14px;font-size:18px}
+  #lapFlash .lfD{font-size:clamp(64px,36vh,240px)}
+  #lapFlash .lfT{font-size:clamp(32px,15vh,110px)}
+}
+/* 走行中の数字が枠からはみ出さないように、枠の幅に合わせて字を小さくする */
+.cell,.runMain{container-type:inline-size}
+.runMain{min-width:0}
+.val,.diff,.big{overflow:hidden;text-overflow:clip}
+.mainSub{white-space:normal;overflow-wrap:anywhere;max-width:100%}
+@supports (width:1cqi){
+  .val{font-size:min(clamp(28px,9vw,56px),21cqi)}
+  .diff{font-size:min(clamp(20px,6vw,36px),16cqi)}
+  .big{font-size:min(clamp(56px,19vw,150px),22cqi)}
+  .big.short{font-size:min(clamp(64px,27vw,200px),30cqi)}
+  @media (orientation:landscape){
+    .val{font-size:min(clamp(22px,8vh,48px),21cqi)}
+    .diff{font-size:min(clamp(14px,5vh,28px),16cqi)}
+    .big{font-size:min(clamp(40px,22vh,150px),22cqi)}
+    .big.short{font-size:min(clamp(48px,32vh,220px),30cqi)}
+  }
+}
