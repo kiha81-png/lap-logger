@@ -84,9 +84,9 @@ TESTS = {
   for (let i = 0; i < 40; i++) pts.push({ t: 1.7e12 + i * 1000, ...toLL(2, 200 - 20 * i), v: 20, acc: 4 });
   for (let i = 0; i < 40; i++) pts.push({ t: 1.7e12 + 40000 + i * 1000, ...toLL(-2, -580 + 20 * i), v: 20, acc: 4 });
   const d = runDet({ course: migrateCourse({ id: 'tw', name: 't', type: 'circuit', lines: [line] }), settings: { minLap: 30 }, points: pts });
-  const w = whyNoLaps(d, 30);
+  const w = why0(d, 30).lines;
   const far = runDet({ course: migrateCourse({ id: 'tf', name: 't', type: 'circuit', lines: [{ c: toLL(5000, 0), hdg: 0, w: 30 }] }), settings: { minLap: 30 }, points: pts });
-  const wf = whyNoLaps(far, 30);
+  const wf = why0(far, 30).lines;
   const ok = d.laps.length === 0 && d.diag.fwd === 1 && d.diag.rev === 1 && w.length === 2 && w[1] === tx('whyOnceRev', 1) && wf.length === 1 && wf[0].includes('5.0');
   return [ok, { diag: d.diag, w, wf }];
 }""",

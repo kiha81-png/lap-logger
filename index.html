@@ -33,6 +33,8 @@ h4{margin:0 0 6px;font-size:13px;color:var(--sub);letter-spacing:.08em}
 .note{color:var(--sub);font-size:14px;line-height:1.6}
 .warnText{color:var(--warn)}
 #homeNote{margin:0 0 10px}#homeNote:empty{display:none}
+#homeFix{margin:0 0 10px}
+details.help{margin:8px 0}details.help summary{color:var(--sub);font-size:14px;padding:8px 0;cursor:pointer}details.help[open] summary{color:var(--text)}
 .row{display:flex;gap:8px;margin:8px 0}
 .row>*{flex:1}
 .row>button{flex:0 0 auto}
@@ -282,6 +284,7 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
     <div class="topbar"><span class="gpsPill" data-gps><span class="gtxt"></span></span><select id="selVeh" aria-label="vehicle"></select></div>
     <div class="dueBox" id="dueBox" hidden><span id="dueText"></span><button id="dueBtn" class="primary" data-i18n="backupNow"></button></div>
     <p class="note" id="homeNote" aria-live="polite"></p>
+    <button id="homeFix" class="wide" hidden></button>
     <div class="carousel" id="carousel">
       <div class="mcard" data-mode="circuit">
         <canvas class="outline" id="olCircuit"></canvas>
@@ -366,7 +369,7 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
   <div class="block" id="cStatus" aria-live="polite"></div>
   <button id="cRound" class="wide" data-i18n="roundBtn" hidden></button>
   <h3 data-i18n="traceTitle"></h3>
-  <p class="note" data-i18n="traceNote"></p>
+  <details class="help"><summary data-i18n="helpMore"></summary><p class="note" data-i18n="traceNote"></p></details>
   <div class="row"><select id="cSessSel" aria-label="recording"></select></div>
   <p class="note" id="cTapHint" aria-live="polite"></p>
   <canvas id="cPreview"></canvas>
@@ -375,9 +378,9 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
   <p class="note" data-i18n="pitNote"></p>
   <div id="cLines"></div>
   <button id="cAddLine" class="wide" data-i18n="addSector"></button>
-  <p class="note" data-i18n="howToPoint"></p>
+  <details class="help"><summary data-i18n="helpMore"></summary><p class="note" data-i18n="howToPoint"></p></details>
   <h3 data-i18n="shareCourseTitle"></h3>
-  <p class="note" data-i18n="shareCourseNote"></p>
+  <details class="help"><summary data-i18n="helpMore"></summary><p class="note" data-i18n="shareCourseNote"></p></details>
   <div class="row eq"><button id="cShare" class="primary" data-i18n="shareCourse"></button><button id="cImport" data-i18n="importCourse"></button></div>
   <button id="cPaste" class="wide" data-i18n="pasteCourse"></button>
   <h3 data-i18n="deleteCourse"></h3>
@@ -451,7 +454,7 @@ const I18N = {
   ja: {
     liveMainTitle: '走行中の大きな表示', mainLast: '前ラップとの差', mainDelta: 'ベストとの今の差（予測ラップ）', optLiveG: '走行中にGメーターも表示する',
     liveMainNote: '「前ラップとの差」は、ラインを越えるたびに、そのラップとベストとの差を大きく出します。「ベストとの今の差」は、ベストラップの同じ地点と比べた今の差と、このまま走ったときの予測ラップを出します（GPSの更新ごと、ふつうは1秒に1回）。',
-    lblVsBest: 'ベストとの差', lblDeltaNow: 'ベストとの今の差', predLap: v => `予測 ${v}`, lastLapIs: v => `前ラップ ${v}`, noRefYet: 'ベストラップがまだありません', elapsed: '経過',
+    lblVsBest: 'ベストとの差', lblDeltaNow: 'ベストとの今の差', predLap: v => `予測 ${v}`, noRefYet: 'ベストラップがまだありません', 
     newBest: 'ベスト更新',
     tabRun: '計測', tabRec: '記録', tabCourse: 'コース', tabSet: '設定',
     modeCircuit: 'サーキット', modeDrag: 'ドラッグ', modeSegment: 'セグメント', modeFree: 'フリー走行',
@@ -465,7 +468,7 @@ const I18N = {
     rideStat3: (av, mx) => `平均 ${av} ${U()}（走行中）・最高 ${mx} ${U()}`, rideGaps: (n, d) => `GPSの途切れ ${n}回（合計 ${d}）`,
     rideRange: (a, b) => `${a}〜${b}`,
     rideDef: '「停車」は時速3km未満の時間です。3分以上止まった（またはGPSが途切れた）ところで区間を分けます。GPSが10秒以上途切れたところは、距離にも走行時間にも入れず、線もつなぎません。',
-    descCircuit: 'コントロールラインで周回を計測', descDrag: '停止から加速。距離と速度のタイム', descSegment: 'スタートからゴールまで（別の場所）',
+    descCircuit: 'コントロールラインで周回を計測', descDrag: '停止から加速。距離と速度のタイム', descSegment: 'スタートからゴールまでを1本ずつ計測',
     course: 'コース', vehicle: '車両', start: '計測開始', preparing: '準備中…', holdStop: '長押しで停止',
     gpsCheck: 'GPS 確認中', gpsGood: a => `GPS 良好 ±${a}m`, gpsWeak: a => `GPS 弱い ±${a}m`, gpsLost: s => `GPS 途切れ ${s}秒`, gpsDenied: 'GPS 使用不可',
     wakeOk: '画面ON固定', wakeNo: '画面の自動消灯を手動で切ってください', wakeFail: '画面ON固定に失敗（再試行中）',
@@ -487,7 +490,7 @@ const I18N = {
     geoDenied: '位置情報が許可されていません。ブラウザの設定で、このサイトの位置情報を許可してください。', geoTimeout: 'GPSの応答を待っています…', geoErr: m => 'GPSが使えません：' + m,
     recAllVeh: 'すべての車両', importJson: 'JSONを読み込む', noRecords: '記録がありません',
     iosNote: 'iPhoneのブラウザは、しばらく開かないサイトの保存データを消すことがあります。大事な記録はJSONで書き出して保管してください。',
-    nLaps: n => `${n}周`, nRuns: n => `${n}本`, recording: '（記録中）',
+    nLaps: n => `${n}周`, helpMore: '使い方の説明', moreOps: '書き出し（CSV・JSON）・削除・その他', fixCourse: n => `コース「${n}」を直す`, nRuns: n => `${n}本`, recording: '（記録中）',
     statsGps: (hz, n, acc) => `GPS 平均 ${hz} Hz（${n}点、±${acc}m）`, statsG: n => `Gセンサー ${n}サンプル`,
     theo: v => `理論ベスト ${v}`, pbVehCourse: v => `この車両・コースの自己ベスト ${v}`, pbVehDrag: v => `この車両の自己ベスト ${v}`,
     outLap: 'アウトラップ', inLap: 'インラップ', runN: n => `ラン ${n}`,
@@ -518,14 +521,14 @@ const I18N = {
     map: '走行ライン', speedGraph: '速度（距離）', deltaGraph: '比較とのタイム差（上が遅い）', gGraph: 'G（距離）', ggTitle: 'G-G図（上：加速、下：ブレーキ、右：右コーナー）',
     noGData: 'この記録にはGのデータがありません', brake: 'ブレーキ', accel: '加速', latPlus: '横G（右が＋）', lonPlus: '前後G（加速が＋）',
     tapHint: '地図やグラフを押すと、その地点に移動します。数字は、速度ならコーナーの最低速度と直線の最高速度、Gならピークの値です。',
-    courseName: 'コース名', newBtn: '新規', newCourse: '新しいコース', typeCircuit: 'サーキット（周回）', typeSegment: 'セグメント（A→B）',
+    courseName: 'コース名', newBtn: '新規', newCourse: '新しいコース', typeCircuit: 'サーキット（周回）', typeSegment: 'セグメント（区間）',
     howToPoint: 'Googleマップで地点を長押しすると座標が表示されます。それをコピーして、各ラインの欄に貼り付けてください。現地でラインの中央に立って「現在地」を押しても登録できます。向きは、数周走った記録から自動で決められます。',
     lnControl: 'コントロールライン', lnStart: 'スタート', lnFinish: 'ゴール', lnSector: i => `セクターライン${i}`, addSector: 'セクターラインを追加',
     paste: '貼り付け', here: '現在地', measuring: n => `測定中${n}`, ptPh: '例：34.84321, 136.54102',
     hdgUnset: '向き未設定', ptUnset: '地点未設定', lineSummary: (h, w) => `向き ${h}°・幅 ${w}m`,
     fwd: m => `前へ${m}m`, bwd: m => `後ろへ${m}m`, leftM: m => `左へ${m}m`, rightM: m => `右へ${m}m`, rotL: d => `⟲ ${d}°`, rotR: d => `⟳ ${d}°`,
     wMinus: '幅 −2m', wPlus: '幅 +2m', snap: '走行ラインに寄せる', hdgThis: 'この線の向きを自動で', delLine: 'この線を削除', delLineConfirm: n => `${n}を削除しますか？`,
-    autoHdgTitle: '記録から向きを自動で決める', autoHdgNote: 'このコースで数周走った記録を選びます。各ラインの向きを、走行ラインに対して直角に決めます。',
+    
     autoBtn: '向きだけ決め直す', allSess: 'このコースのすべての記録', noSessForCourse: 'まだ記録がありません',
     traceTitle: '走った記録から作る', traceNote: 'まず「記録だけ」で数周走ります（計測画面でコースが未完成なら、記録だけになります）。その記録を選び、下の図の走行ラインをタップすると、選んでいるライン（CL・S1…）がそこに置かれ、向きも自動で決まります。2本指で拡大・移動できます。「自動で作る」は、スタート/ゴールを自動で置きます。',
     tapPlace: n => `タップで置くライン：${n}`, tapFar: '走行ラインの近くをタップしてください。', zoomIn: '拡大', zoomOut: '縮小', zoomFit: '全体',
@@ -556,7 +559,7 @@ const I18N = {
     copyInfo: '端末情報をコピー', openIssues: '報告ページを開く', copied: 'コピーしました。', copyManual: 'この内容をコピーしてください：',
     consentTitle: 'ご利用の前に', consentOk: '内容を確認して、同意する', showConsent: '注意事項をもう一度読む',
     consentBody: '<ul><li><b>走行中は、スマホを見たり操作したりしないでください。</b>安全な運転・走行を最優先にしてください。</li><li>スマホは、しっかり固定してください。固定は自己責任で行ってください。</li><li>このアプリは、サーキットなどの閉ざされた場所での使用を想定しています。公道では交通法規を守ってください。車載や計測が認められているかは、走行会やサーキットの規則で確認してください。</li><li>タイム・速度・Gは、スマホのGPSとセンサーから求めた<b>目安</b>です。公式の計時の代わりにはなりません。</li><li>記録中に画面を消したり、他のアプリに切り替えたりすると、記録が止まります。バッテリーの減りと発熱に注意してください。</li><li>データはこの端末の中だけに保存され、外部には送られません（設定の「Googleに保存」を自分でオンにした場合だけ、自分のGoogleスプレッドシート・ドライブに送ります）。大事な記録はバックアップしてください。</li><li>このアプリは無保証で提供されます（MITライセンス）。使用によって生じた損害について、作者は責任を負いません。</li></ul>',
-    needConsent: '先に、注意事項を確認して同意してください。',
+    
     display: '表示', optHc: '屋外向けの高コントラスト表示', optCb: '色覚に配慮した配色（青とオレンジ）',
     pitNote: 'ピットロードがラインの近くを通る場合は、幅を狭めてください（プレビューと拡大図で確かめられます）。',
     shareCourseTitle: 'コースの共有', shareCourseNote: 'QRコードを見せるか、リンクやファイルを送って、仲間と共有できます。受け取った人は、スマホのカメラでQRを読むか、リンクを開くか、「コースを読み込む」「コードを貼り付けて追加」で追加できます。走行データは入りません。',
@@ -594,7 +597,7 @@ const I18N = {
   en: {
     liveMainTitle: 'Main display while riding', mainLast: 'Last lap vs best', mainDelta: 'Live gap to best (predicted lap)', optLiveG: 'Show the G meter while riding',
     liveMainNote: '"Last lap vs best" shows the gap between each completed lap and your best. "Live gap to best" compares where you are now with the same point on your best lap and shows the predicted lap time (updated with each GPS fix, usually once per second).',
-    lblVsBest: 'Gap to best', lblDeltaNow: 'Live gap to best', predLap: v => `Predicted ${v}`, lastLapIs: v => `Last lap ${v}`, noRefYet: 'No best lap yet', elapsed: 'Elapsed',
+    lblVsBest: 'Gap to best', lblDeltaNow: 'Live gap to best', predLap: v => `Predicted ${v}`, noRefYet: 'No best lap yet', 
     newBest: 'NEW BEST',
     tabRun: 'Timer', tabRec: 'Records', tabCourse: 'Tracks', tabSet: 'Settings',
     modeCircuit: 'CIRCUIT', modeDrag: 'DRAG', modeSegment: 'SEGMENT', modeFree: 'FREE RIDE',
@@ -608,7 +611,7 @@ const I18N = {
     rideStat3: (av, mx) => `Avg ${av} ${U()} (moving), top ${mx} ${U()}`, rideGaps: (n, d) => `GPS lost ${n} times (${d} in total)`,
     rideRange: (a, b) => `${a}–${b}`,
     rideDef: '"Stopped" = slower than 3 km/h. A new leg starts after a stop (or GPS loss) of 3 minutes or more. Where GPS was lost for 10 s or more, the distance and moving time are not counted and the line is not joined.',
-    descCircuit: 'Continuous laps over a start/finish line', descDrag: 'Standing start: distance and speed times', descSegment: 'Point A to point B, separate start and finish',
+    descCircuit: 'Continuous laps over a start/finish line', descDrag: 'Standing start: distance and speed times', descSegment: 'One timed run from start to finish',
     course: 'Track', vehicle: 'Vehicle', start: 'START', preparing: 'Loading…', holdStop: 'Hold to stop',
     gpsCheck: 'GPS: checking', gpsGood: a => `GPS GOOD ±${a}m`, gpsWeak: a => `GPS WEAK ±${a}m`, gpsLost: s => `GPS LOST ${s}s`, gpsDenied: 'GPS unavailable',
     wakeOk: 'Screen kept on', wakeNo: 'Turn off auto-lock manually', wakeFail: 'Could not keep the screen on (retrying)',
@@ -630,7 +633,7 @@ const I18N = {
     geoDenied: 'Location permission denied. Allow location for this site in your browser settings.', geoTimeout: 'Waiting for GPS…', geoErr: m => 'GPS error: ' + m,
     recAllVeh: 'All vehicles', importJson: 'Import JSON', noRecords: 'No recordings yet',
     iosNote: 'iPhone browsers may delete data of sites that are not opened for a while. Export important recordings as JSON.',
-    nLaps: n => `${n} laps`, nRuns: n => `${n} runs`, recording: ' (recording)',
+    nLaps: n => `${n} laps`, helpMore: 'How to use', moreOps: 'Export, delete and more', fixCourse: n => `Fix track "${n}"`, nRuns: n => `${n} runs`, recording: ' (recording)',
     statsGps: (hz, n, acc) => `GPS average ${hz} Hz (${n} points, ±${acc} m)`, statsG: n => `G sensor ${n} samples`,
     theo: v => `Theoretical best ${v}`, pbVehCourse: v => `Personal best (vehicle & track) ${v}`, pbVehDrag: v => `Personal best (vehicle) ${v}`,
     outLap: 'Out lap', inLap: 'In lap', runN: n => `Run ${n}`,
@@ -668,7 +671,7 @@ const I18N = {
     hdgUnset: 'direction not set', ptUnset: 'point not set', lineSummary: (h, w) => `Heading ${h}°, width ${w} m`,
     fwd: m => `Fwd ${m} m`, bwd: m => `Back ${m} m`, leftM: m => `Left ${m} m`, rightM: m => `Right ${m} m`, rotL: d => `⟲ ${d}°`, rotR: d => `⟳ ${d}°`,
     wMinus: 'Width −2 m', wPlus: 'Width +2 m', snap: 'Snap to driven line', hdgThis: 'Auto direction (this line)', delLine: 'Delete this line', delLineConfirm: n => `Delete ${n}?`,
-    autoHdgTitle: 'Auto directions from a recording', autoHdgNote: 'Pick a recording with a few laps on this track. Each line is set perpendicular to the driven path.',
+    
     autoBtn: 'Redo directions only', allSess: 'All recordings of this track', noSessForCourse: 'No recordings yet',
     traceTitle: 'Build from a recording', traceNote: 'First drive a few laps with recording only (if the track is incomplete, the run screen just records). Pick that recording and tap the driven path below: the selected line (CL, S1…) is placed there and its direction is set automatically. Use two fingers to zoom and move. "Build automatically" places the start/finish for you.',
     tapPlace: n => `Tap to place: ${n}`, tapFar: 'Tap close to the driven path.', zoomIn: 'Zoom in', zoomOut: 'Zoom out', zoomFit: 'Fit',
@@ -699,7 +702,7 @@ ${m} of them belong to another track and will move to this track (their old resu
     copyInfo: 'Copy device info', openIssues: 'Open the report page', copied: 'Copied.', copyManual: 'Copy this text:',
     consentTitle: 'Before you start', consentOk: 'I have read this and agree', showConsent: 'Read the safety notes again',
     consentBody: '<ul><li><b>Do not look at or touch the phone while riding or driving.</b> Safety comes first.</li><li>Mount the phone securely, at your own responsibility.</li><li>This app is meant for closed venues such as race tracks. On public roads, obey traffic laws. Check the event or track rules on whether phone mounts and timing are allowed.</li><li>Times, speeds and G are <b>estimates</b> from the phone GPS and sensors. They are not official timing.</li><li>Turning off the screen or switching apps while recording stops the recording. Watch battery drain and heat.</li><li>Data is stored only on this device and is never sent anywhere (unless you turn on "Save to Google" in Settings, which sends it to your own Google Sheet and Drive). Back up important recordings.</li><li>This app is provided without warranty (MIT License). The author is not liable for any damage arising from its use.</li></ul>',
-    needConsent: 'Please read and agree to the safety notes first.',
+    
     display: 'Display', optHc: 'High-contrast outdoor display', optCb: 'Color-vision friendly colors (blue/orange)',
     pitNote: 'If the pit lane runs close to a line, make the line narrower (check it in the preview and zoom view).',
     shareCourseTitle: 'Share a track', shareCourseNote: 'Show a QR code, or send a link or a file. Friends can scan the QR with their phone camera, open the link, or use "Import track" / "Add from pasted code". No driving data is included.',
@@ -1062,7 +1065,6 @@ function why0(det, minLap){
   if (!code && out.length) code = 'w0Other';
   return { code, lines: out };
 }
-const whyNoLaps = (det, minLap) => why0(det, minLap).lines;
 
 function courseProblem(c){
   if (!c) return tx('probNoCourse');
@@ -1749,10 +1751,11 @@ function renderHome(){
   drawFreeOutline($('#olFree'));
 }
 function homeNote(){
-  const v = curVehicle(), m = settings.mode, msgs = [];
+  const v = curVehicle(), m = settings.mode, msgs = []; let fix = null;
   if (m === 'drag') msgs.push(tx('drag1hz'));
   else if (m === 'free') msgs.push(tx('freeNote'));
-  else { const c = selCourse(m); const p = c ? courseProblem(c) : tx('noCourse'); if (p) msgs.push(p); }
+  else { const c = selCourse(m); const p = c ? courseProblem(c) : tx('noCourse'); if (p) msgs.push(p); if (c && p) fix = c; }
+  const fb = $('#homeFix'); fb.hidden = !fix; if (fix){ fb.textContent = tx('fixCourse', fix.name); fb.dataset.id = fix.id; }
   if (v.type === 'car' && !v.cal) msgs.push(tx('calNeeded'));
   if (battery && !battery.charging && battery.level < 0.3) msgs.push(tx('lowBattery', Math.round(battery.level * 100)));
   if (!window.isSecureContext) msgs.push(tx('needHttps'));
@@ -1813,6 +1816,8 @@ function drawDragOutline(cv){
 $('#selCircuit').addEventListener('change', e => { settings.courseCircuit = e.target.value; saveSettings(); renderHome(); });
 $('#selSegment').addEventListener('change', e => { settings.courseSegment = e.target.value; saveSettings(); renderHome(); });
 $('#selVeh').addEventListener('change', e => { vehicleId = e.target.value; saveVehicles(); homeNote(); });
+// 計測画面の「コースを直す」：そのコースを開いた状態でコース画面へ
+$('#homeFix').addEventListener('click', e => { cv.id = e.currentTarget.dataset.id; cv.sel = 0; cv.trace = null; cv.z = 1; cv.ox = cv.oy = 0; showTab('v-course'); window.scrollTo(0, 0); });
 $('#dragChips').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const d = +b.dataset.d, on = settings.dragDist.includes(d);
@@ -2211,7 +2216,9 @@ function renderRecList(){
   const list = recState.veh ? sessions.filter(s => s.vehicle && s.vehicle.id === recState.veh) : sessions;
   $('#recCards').innerHTML = list.length ? list.map(s => {
     const n = (s.laps || []).length, r = isFree(s) ? s.ride : null;
-    const best = isFree(s) ? (r ? fmtDist(r.dist) : '') : sessBest(s) || (!n && !s.active && s.why0 ? tx(s.why0) : ''), cnt = isFree(s) ? (r ? fmtDur(r.total) : '') : s.mode === 'drag' ? tx('nRuns', n) : tx('nLaps', n);
+    const wl = s.mode !== 'drag' && !isFree(s) ? (s.laps || []).filter(l => !l.excl) : []; // ⚠つきしか無いときは、そのタイムに⚠を付けて出す
+    const best = isFree(s) ? (r ? fmtDist(r.dist) : '') : sessBest(s) || (wl.length ? fmtLap(Math.min(...wl.map(l => l.time))) + '⚠' : !n && !s.active && s.why0 ? tx(s.why0) : '');
+    const cnt = isFree(s) ? (r ? fmtDur(r.total) : '') : s.mode === 'drag' || s.mode === 'segment' ? tx('nRuns', n) : tx('nLaps', n);
     return `<button class="rcard" data-id="${esc(s.id)}">
       <span class="rmode">${esc(tx(modeKey(s.mode)))}</span>
       <span class="rtitle">${esc(sessName(s))}</span>
@@ -2255,7 +2262,7 @@ function renderSess(){
   h += '</div>';
   if (!A.pieces.length) h += `<p class="note">${esc(tx('noLapsYet'))}</p>`;
   if (!drag && !free && !s.active){
-    const why = whyNoLaps(A.det, (s.settings && s.settings.minLap) || DEFAULT_OPT.minLap);
+    const why = why0(A.det, (s.settings && s.settings.minLap) || DEFAULT_OPT.minLap).lines;
     if (why.length) h += `<div class="block" id="whyNone"><b>${esc(tx('whyNone'))}</b><br>${why.map(esc).join('<br>')}</div>`;
   }
   A.pieces.forEach((pc, i) => {
@@ -2283,9 +2290,10 @@ function renderSess(){
   h += `<p class="note">${esc(tx(free ? 'rideDef' : 'statDef'))}</p>
     ${free ? '' : `<button class="wide" data-sa="recalc">${esc(tx('recalc'))}</button>`}
     ${drag || free ? '' : `<div class="row" style="margin-top:8px"><select id="recalcSel" aria-label="${esc(tx('recalcPick'))}">${courses.filter(c => !courseProblem(c)).map(c => `<option value="${esc(c.id)}"${s.course && c.id === s.course.id ? ' selected' : ''}>${esc(c.name)}（${esc(tx(c.type === 'segment' ? 'modeSegment' : 'modeCircuit'))}）</option>`).join('')}</select><button data-sa="recalcOther">${esc(tx('recalcOther'))}</button></div>`}
+    <details class="help" id="moreOps"><summary>${esc(tx('moreOps'))}</summary>
     ${drag || free ? '' : `<button class="wide" style="margin-top:8px" data-sa="auto">${esc(tx('autoFromThis'))}</button>`}
     <div class="row eq"><button data-sa="csv">CSV</button><button data-sa="json">JSON</button><button data-sa="del" class="danger">${esc(tx('del'))}</button></div>
-    <button class="wide" style="margin-top:8px" data-sa="gs">${esc(tx('gsSendOne'))}</button><p class="note" id="gsSessNote"></p>`;
+    </details><button class="wide" style="margin-top:8px" data-sa="gs">${esc(tx('gsSendOne'))}</button><p class="note" id="gsSessNote"></p>`;
   $('#sBody').innerHTML = h;
   renderGsSess();
 }
