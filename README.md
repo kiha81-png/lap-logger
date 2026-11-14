@@ -85,8 +85,10 @@ Use [Issues](https://github.com/kiha81-png/lap-logger/issues) and paste "Setting
 
 ## 開発メモ / Development
 
-- `index.html` がアプリ本体、`sw.js` がオフライン対応、`manifest.webmanifest` がホーム画面用の設定です。
-- **更新するときは、`index.html` の `APP_VERSION` と `sw.js` の `VERSION` を同じ値に上げてください。**
+- `index.html` がアプリ本体（1ファイルで動きます）、`sw.js` がオフライン対応、`manifest.webmanifest` がホーム画面用の設定です。
+- **`index.html` は直接編集しません。** `src/` を直してから `python build.py` を実行すると作り直されます（`src/index.template.html` に `src/css/app.css` と `src/js/*.js` を番号順に差し込みます）。作り直し忘れはテストが知らせます。
+- `src/js/` の分け方：`01-i18n`（文言）、`03-storage`（保存）、`04-geometry`・`05-detect`（ラインの判定）、`10-gps`・`13-record`（計測）、`14-records`・`17-lap-view`（記録）、`18-course`（コース）、`16-google-sync`、`19-qr`、`20-settings` など。整形は `prettier --write "src/js/*.js" src/css/app.css`。
+- **更新するときは、`src/js/03-storage.js` の `APP_VERSION` と `sw.js` の `VERSION` を同じ値に上げてください。**
 - 保存データの形を変えるときは、`SCHEMA` を上げ、`DB.open()` の `onupgradeneeded` に移行処理を書きます（移行前に `backups` へ控えを取ります）。
 - テスト：`python tests/run_tests.py`（Python、`pip install playwright zxing-cpp pillow`、Microsoft Edge。Edge が無ければ Playwright の Chromium を使います。`BROWSER_PATH` でブラウザを指定することもできます）
 - 公開前の実機確認：[`docs/DEVICE_TEST.md`](docs/DEVICE_TEST.md)

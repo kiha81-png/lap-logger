@@ -111,6 +111,22 @@ TESTS = {
   const ok = before.includes(tx('csNg')) && btnShown && after.includes(tx('csOk')) && hd[0] === 180 && hd[1] === 0 && why && laps.length === 1 && Math.abs(laps[0] - 59000) < 1500 && mode === 'segment' && sel;
   return [ok, { before, after, hd, why, laps, mode, sel }];
 }""",
+'list_and_home_hints': """() => {
+  // 一覧：⚠つきのラップしか無い記録はタイムに⚠、0周は理由、セグメントは「本」。計測画面：未完成のコースには「直す」ボタン
+  const mk = (id, mode, laps, why0) => ({ id, startedAt: 1.5e12 + sessions.length, mode, vehicle: vehSnap(vehicles[0]), course: { id: 'lx', name: 'LX', type: mode, lines: [] }, settings: {}, points: [], laps, why0 });
+  const a = mk('la', 'segment', [{ n: 1, time: 61230, warn: true, splits: [] }], ''), b = mk('lb', 'circuit', [], 'w0Once');
+  sessions.unshift(a, b); recState.veh = ''; showTab('v-rec'); goRec('list', false);
+  const txt = id => $(`#recCards .rcard[data-id="${id}"]`).textContent.replace(/\\s+/g, ' ');
+  const ta = txt('la'), tb = txt('lb');
+  sessions = sessions.filter(x => x !== a && x !== b);
+  const c = migrateCourse({ id: 'lh', name: 'LH', type: 'circuit', lines: [newLine()] }), keepMode = settings.mode, keepC = settings.courseCircuit;
+  courses.push(c); settings.mode = 'circuit'; settings.courseCircuit = c.id; showTab('v-run'); homeNote();
+  const shown = !$('#homeFix').hidden && $('#homeFix').textContent === tx('fixCourse', 'LH');
+  $('#homeFix').click(); const jumped = curTab === 'v-course' && cv.id === c.id;
+  courses = courses.filter(x => x !== c); cv.id = courses[0].id; settings.mode = keepMode; settings.courseCircuit = keepC; showTab('v-run');
+  const ok = ta.includes(fmtLap(61230) + '⚠') && ta.includes(tx('nRuns', 1)) && tb.includes(tx('w0Once')) && tb.includes(tx('nLaps', 0)) && shown && jumped;
+  return [ok, { ta, tb, shown, jumped }];
+}""",
 'segment': """() => {
   const pts = []; for (let i = 0; i < 50; i++) pts.push({ t: 1.7e12 + i * 1000, ...toLL(0, -100 + 30 * i), v: 30, acc: 4 });
   const c = migrateCourse({ id: 'ts', name: 't', type: 'segment', lines: [{ c: toLL(0, 0), hdg: 0, w: 30 }, { c: toLL(0, 500), hdg: 0, w: 30 }, { c: toLL(0, 1000), hdg: 0, w: 30 }] });
@@ -377,6 +393,10 @@ FREE_RIDE = """async () => {
 def main():
     httpd, url = start_server()
     results, failed = {}, 0
+    # index.html は src/ から build.py で作る。作り直し忘れがないか
+    import subprocess
+    stale = subprocess.run([sys.executable, os.path.join(ROOT, 'build.py'), '--check'], capture_output=True, text=True)
+    results['build_up_to_date'] = [stale.returncode == 0, stale.stdout.strip()]
     with sync_playwright() as p:
         b = launch(p)
         ctx = b.new_context(service_workers='allow')
