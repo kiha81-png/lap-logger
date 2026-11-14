@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<!-- 外部との通信は、設定で「Googleに保存」を使うときの Apps Script だけを許す（それ以外はこの端末から出さない） -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; connect-src https://script.google.com https://script.googleusercontent.com; font-src 'none'; frame-src 'none'; worker-src 'self'; manifest-src 'self'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="referrer" content="no-referrer">
+<title>Lap Logger</title>
+<style>
+/* @css */
+</style>
+</head>
+<body>
+<div id="banner" hidden></div>
+<div id="lapFlash" hidden aria-live="assertive"><div class="lfN" id="lfN"></div><div class="lfD" id="lfD"></div><div class="lfT" id="lfT"></div></div>
+<div id="shareBox" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="shareH"><div class="box">
+  <h2 id="shareH" data-i18n="shareCourse"></h2><p id="shareName"></p>
+  <canvas id="qrCv" role="img" aria-label="QR"></canvas><p class="note" id="qrMsg"></p>
+  <button id="qrCopy" class="primary" data-i18n="copyLink"></button><button id="qrFile" data-i18n="shareFile"></button><button id="qrClose" data-i18n="qrClose"></button>
+</div></div>
+<div id="impBox" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="impH"><div class="box">
+  <h2 id="impH" data-i18n="impTitle"></h2><p id="impInfo"></p>
+  <button id="impAdd" class="primary" data-i18n="impAdd"></button><button id="impCopy" data-i18n="impCopy"></button>
+  <p class="note" data-i18n="impIosNote"></p><button id="impCancel" data-i18n="impCancel"></button>
+</div></div>
+<div id="consent" hidden><div class="box"><h2 data-i18n="consentTitle"></h2><div data-i18n-html="consentBody"></div><button id="consentOk" class="primary" data-i18n="consentOk"></button></div></div>
+<div id="updBar" hidden><span data-i18n="updateAvail"></span><button id="updBtn" class="primary" data-i18n="updateBtn"></button></div>
+
+<section id="v-run" class="on">
+  <div id="home" class="wrap">
+    <div class="topbar"><span class="gpsPill" data-gps><span class="gtxt"></span></span><select id="selVeh" aria-label="vehicle"></select></div>
+    <div class="dueBox" id="dueBox" hidden><span id="dueText"></span><button id="dueBtn" class="primary" data-i18n="backupNow"></button></div>
+    <p class="note" id="homeNote" aria-live="polite"></p>
+    <button id="homeFix" class="wide" hidden></button>
+    <div class="carousel" id="carousel">
+      <div class="mcard" data-mode="circuit">
+        <canvas class="outline" id="olCircuit"></canvas>
+        <div><h2 data-i18n="modeCircuit"></h2><p data-i18n="descCircuit"></p></div>
+        <label class="fld"><span data-i18n="course"></span><select id="selCircuit"></select></label>
+      </div>
+      <div class="mcard" data-mode="drag">
+        <canvas class="outline" id="olDrag"></canvas>
+        <div><h2 data-i18n="modeDrag"></h2><p data-i18n="descDrag"></p></div>
+        <div class="fld"><span data-i18n="dragDists"></span><div class="chips" id="dragChips"></div><span data-i18n="dragSpeeds"></span></div>
+      </div>
+      <div class="mcard" data-mode="segment">
+        <canvas class="outline" id="olSegment"></canvas>
+        <div><h2 data-i18n="modeSegment"></h2><p data-i18n="descSegment"></p></div>
+        <label class="fld"><span data-i18n="course"></span><select id="selSegment"></select></label>
+      </div>
+      <div class="mcard" data-mode="free">
+        <canvas class="outline" id="olFree"></canvas>
+        <div><h2 data-i18n="modeFree"></h2><p data-i18n="descFree"></p></div>
+      </div>
+    </div>
+    <div class="dots" id="dots"><button data-i="0" aria-label="1"></button><button data-i="1" aria-label="2"></button><button data-i="2" aria-label="3"></button><button data-i="3" aria-label="4"></button></div>
+    <button id="startBtn" class="startBtn" disabled></button>
+  </div>
+  <div id="live" hidden>
+    <div class="runHead"><span class="gpsPill" data-gps><span class="gtxt"></span></span><span id="wakeText" class="sub"></span><span id="runLabel" class="sub"></span></div>
+    <div class="runMain"><div class="mainLbl" id="mainLbl"></div><div class="big" id="mainVal">-:--.-</div><div class="mainSub" id="mainSub"></div><div class="dragList" id="dragList"></div></div>
+    <div class="cells">
+      <div class="cell" id="cellCur"><div class="lbl" id="lapNo"></div><div class="val" id="curLap">-:--.-</div></div>
+      <div class="cell" id="cellLast"><div class="lbl" id="lblLast"></div><div class="val" id="lastLap">--</div><div class="diff" id="lastDiff"></div></div>
+      <div class="cell" id="cellBest"><div class="lbl" id="lblBest" data-i18n="pb"></div><div class="val" id="bestLap">--</div></div>
+      <div class="cell" id="cellSec"><div class="lbl" id="secLbl"></div><div class="val" id="secTime">--</div><div class="diff" id="secDiff"></div></div>
+    </div>
+    <div class="gbox" id="gbox">
+      <canvas id="gCanvas"></canvas>
+      <div class="gvals"><div><span data-i18n="gLat"></span><b id="gLat">--</b></div><div><span data-i18n="gLon"></span><b id="gLon">--</b></div></div>
+    </div>
+    <div class="runBtns"><button id="stopBtn" class="danger hold"><span class="fill"></span><span data-i18n="holdStop"></span></button><button id="dimBtn"></button></div>
+    <p class="note" id="runNote"></p>
+  </div>
+</section>
+
+<section id="v-rec"><div class="wrap" style="max-width:1100px">
+  <div id="recList">
+    <div class="row"><select id="recVeh" aria-label="vehicle"></select><button id="impJson" data-i18n="importJson"></button></div>
+    <div id="recCards"></div>
+    <p class="note" data-i18n="iosNote"></p>
+  </div>
+  <div id="recSess" hidden>
+    <div class="hdr"><button class="back" data-back aria-label="back">‹</button><div class="htitle" id="sTitle"></div></div>
+    <div id="sBody"></div>
+  </div>
+  <div id="recLap" hidden>
+    <div class="hdr"><button class="back" data-back aria-label="back">‹</button><div class="htitle" id="lTitle"></div></div>
+    <div class="row" id="cmpRow"><select id="cmpSel" aria-label="compare"></select></div>
+    <div class="player"><button id="playBtn" class="primary">▶</button><input type="range" id="seek" min="0" max="1000" step="100" value="0"><button id="rateBtn">×1</button></div>
+    <div class="readout" id="readout"></div>
+    <div class="lapGrid">
+      <div>
+        <div class="hrow"><h3 data-i18n="map"></h3>
+          <select id="mapMode"><option value="v" data-i18n="mSpeed"></option><option value="lat" data-i18n="gLat"></option><option value="lon" data-i18n="gLon"></option><option value="sum" data-i18n="mSum"></option></select></div>
+        <canvas id="lMap"></canvas>
+        <div class="legend" id="lMapLegend"></div>
+        <p class="note" data-i18n="tapHint"></p>
+      </div>
+      <div>
+        <h3 data-i18n="speedGraph"></h3><canvas id="lSpd"></canvas><div class="legend" id="lSpdLegend"></div>
+        <div id="deltaBox"><h3 data-i18n="deltaGraph"></h3><canvas id="lDelta"></canvas></div>
+        <h3 data-i18n="gGraph"></h3><canvas id="lG"></canvas><div class="legend" id="lGLegend"></div>
+        <h3 data-i18n="ggTitle"></h3><canvas id="lGG"></canvas>
+      </div>
+    </div>
+    <div class="block" id="lStats"></div>
+  </div>
+  <input type="file" id="impFile" accept=".json,application/json" hidden>
+</div></section>
+
+<section id="v-course"><div class="wrap">
+  <div class="row"><select id="cSel" aria-label="track"></select><button id="cNew" data-i18n="newBtn"></button></div>
+  <label class="f"><span data-i18n="courseName"></span><input id="cName" autocomplete="off"></label>
+  <div class="seg" id="cType"><button data-t="circuit" data-i18n="typeCircuit"></button><button data-t="segment" data-i18n="typeSegment"></button></div>
+  <div class="block" id="cStatus" aria-live="polite"></div>
+  <button id="cRound" class="wide" data-i18n="roundBtn" hidden></button>
+  <h3 data-i18n="traceTitle"></h3>
+  <details class="help"><summary data-i18n="helpMore"></summary><p class="note" data-i18n="traceNote"></p></details>
+  <div class="row"><select id="cSessSel" aria-label="recording"></select></div>
+  <p class="note" id="cTapHint" aria-live="polite"></p>
+  <canvas id="cPreview"></canvas>
+  <div class="row eq"><button id="cZin" data-i18n="zoomIn"></button><button id="cZout" data-i18n="zoomOut"></button><button id="cZfit" data-i18n="zoomFit"></button></div>
+  <div class="row eq"><button id="cBuild" class="primary" data-i18n="autoBuild"></button><button id="cAuto" data-i18n="autoBtn"></button></div>
+  <p class="note" data-i18n="pitNote"></p>
+  <div id="cLines"></div>
+  <button id="cAddLine" class="wide" data-i18n="addSector"></button>
+  <details class="help"><summary data-i18n="helpMore"></summary><p class="note" data-i18n="howToPoint"></p></details>
+  <h3 data-i18n="shareCourseTitle"></h3>
+  <details class="help"><summary data-i18n="helpMore"></summary><p class="note" data-i18n="shareCourseNote"></p></details>
+  <div class="row eq"><button id="cShare" class="primary" data-i18n="shareCourse"></button><button id="cImport" data-i18n="importCourse"></button></div>
+  <button id="cPaste" class="wide" data-i18n="pasteCourse"></button>
+  <h3 data-i18n="deleteCourse"></h3>
+  <button id="cDel" class="danger wide" data-i18n="delCourseBtn"></button>
+</div></section>
+
+<section id="v-set"><div class="wrap">
+  <h3 data-i18n="language"></h3>
+  <div class="seg" id="langSeg"><button data-l="ja">日本語</button><button data-l="en">English</button></div>
+  <h3 data-i18n="vehicle"></h3>
+  <div class="row"><select id="vehSel" aria-label="vehicle"></select><button id="vehNew" data-i18n="newBtn"></button></div>
+  <label class="f"><span data-i18n="vehName"></span><input id="vehName" autocomplete="off"></label>
+  <div class="seg">
+    <label><input type="radio" name="vehType" value="bike"><span data-i18n="bike"></span></label>
+    <label><input type="radio" name="vehType" value="car"><span data-i18n="car"></span></label>
+  </div>
+  <p class="note" id="bikeBox" data-i18n="bikeNote"></p>
+  <div id="carBox">
+    <p class="note" data-i18n-html="carNote"></p>
+    <button id="calBtn" class="wide" data-i18n="calBtn"></button>
+    <p class="note" id="calInfo"></p>
+    <p class="note" data-i18n="flipNote"></p>
+    <div class="row"><label class="chk"><input type="checkbox" id="flipF"><span data-i18n="flipF"></span></label><label class="chk"><input type="checkbox" id="flipL"><span data-i18n="flipL"></span></label></div>
+  </div>
+  <button id="vehDel" class="danger wide" data-i18n="delVeh"></button>
+  <h3 data-i18n="display"></h3>
+  <div class="seg" id="unitSeg"><button data-u="kmh">km/h</button><button data-u="mph">mph</button></div>
+  <h4 style="margin-top:14px" data-i18n="liveMainTitle"></h4>
+  <div class="seg" id="mainSeg"><button data-m="last" data-i18n="mainLast"></button><button data-m="delta" data-i18n="mainDelta"></button></div>
+  <p class="note" data-i18n="liveMainNote"></p>
+  <div class="row"><label class="chk"><input type="checkbox" id="optLiveG"><span data-i18n="optLiveG"></span></label></div>
+  <div class="row"><label class="chk"><input type="checkbox" id="optHc"><span data-i18n="optHc"></span></label></div>
+  <div class="row"><label class="chk"><input type="checkbox" id="optCb"><span data-i18n="optCb"></span></label></div>
+  <button id="showConsent" class="wide" data-i18n="showConsent"></button>
+  <h3 data-i18n="judge"></h3>
+  <label class="f"><span data-i18n="minLap"></span><input id="optMinLap" type="number" inputmode="decimal" min="5"></label>
+  <label class="f"><span data-i18n="maxAcc"></span><input id="optAcc" type="number" inputmode="decimal" min="3"></label>
+  <p class="note" data-i18n="minCross"></p>
+  <h3 data-i18n="dataTitle"></h3>
+  <p class="note" data-i18n="dataNote"></p>
+  <p class="note" id="lastBackup"></p>
+  <div class="row eq"><button id="backupBtn" class="primary" data-i18n="backupBtn"></button><button id="restoreBtn" data-i18n="restoreBtn"></button></div>
+  <h4 style="margin-top:14px" data-i18n="autoBackupTitle"></h4>
+  <div id="autoBackups"></div>
+  <h3 data-i18n="gsTitle"></h3>
+  <p class="note" data-i18n="gsNote"></p>
+  <button id="gsGuide" class="wide" data-i18n="gsGuide"></button>
+  <label class="f"><span data-i18n="gsUrl"></span><input id="gsUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec"></label>
+  <label class="f"><span data-i18n="gsToken"></span><input id="gsToken" type="password" autocomplete="off" spellcheck="false"></label>
+  <label class="f"><span data-i18n="gsName"></span><input id="gsName" autocomplete="off" maxlength="40"></label>
+  <div class="row"><label class="chk"><input type="checkbox" id="gsAuto"><span data-i18n="gsAuto"></span></label></div>
+  <div class="row eq"><button id="gsTest" data-i18n="gsTest"></button><button id="gsSendAll" data-i18n="gsSendAll"></button></div>
+  <p class="note" id="gsStatus"></p>
+  <h3 data-i18n="supportTitle"></h3>
+  <p class="note" data-i18n="supportNote"></p>
+  <div class="row eq"><button id="copyInfo" data-i18n="copyInfo"></button><button id="openIssues" data-i18n="openIssues"></button></div>
+  <p class="note" id="verInfo"></p>
+</div></section>
+
+<nav>
+  <button data-v="v-run" class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6M12 2v3"/></svg><span data-i18n="tabRun"></span></button>
+  <button data-v="v-rec"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span data-i18n="tabRec"></span></button>
+  <button data-v="v-course"><svg viewBox="0 0 24 24"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h6a4 4 0 0 0 0-8h-4a4 4 0 0 1 0-8h6"/></svg><span data-i18n="tabCourse"></span></button>
+  <button data-v="v-set"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span data-i18n="tabSet"></span></button>
+</nav>
+
+<script>
+/* @js */
+</script>
+</body>
+</html>
