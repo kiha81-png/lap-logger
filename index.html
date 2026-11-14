@@ -363,6 +363,8 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;padding:0;margin:0
   <div class="row"><select id="cSel" aria-label="track"></select><button id="cNew" data-i18n="newBtn"></button></div>
   <label class="f"><span data-i18n="courseName"></span><input id="cName" autocomplete="off"></label>
   <div class="seg" id="cType"><button data-t="circuit" data-i18n="typeCircuit"></button><button data-t="segment" data-i18n="typeSegment"></button></div>
+  <div class="block" id="cStatus" aria-live="polite"></div>
+  <button id="cRound" class="wide" data-i18n="roundBtn" hidden></button>
   <h3 data-i18n="traceTitle"></h3>
   <p class="note" data-i18n="traceNote"></p>
   <div class="row"><select id="cSessSel" aria-label="recording"></select></div>
@@ -502,7 +504,15 @@ const I18N = {
     whyNoCross: '走った線はスタートラインの近くを通っていますが、ラインを横切っていません。ラインの長さ（幅）を広げるか、位置を直してください。',
     whySlow: n => `時速${Math.round(MIN_CROSS_V * 3.6)}km未満でラインを通った${n}回は、止まっているときのGPSの揺れとみなして数えていません。`,
     whyShort: (n, m) => `最短ラップ（${m}秒）より短い${n}回の通過は、ラインを二度踏んだとみなして数えていません。設定の「最短ラップ」を確かめてください。`,
-    revCross: 'スタートラインを逆向きに通りました（数えません）', dragRunLine: (d, t, v) => `${distLabel(d)}  ${t}秒  ${v}${U()}`, spdTime: (s, t, u) => `0-${s}${u}  ${t}秒`, maxSpd: v => `最高 ${v} ${U()}`,
+    revCross: 'スタートラインを逆向きに通りました（数えません）',
+    whySegGoal: (d, w) => `スタートは通りましたが、ゴールを通っていません（いちばん近づいたのは約${d}、ゴールの長さは${w}m）。ゴールの位置と向きを確かめてください。`,
+    whySegRev: n => `スタートを逆向きにだけ通っています（${n}回）。途中から始めた記録か、スタートの向きが逆です。`,
+    w0Far: 'ラインを通っていません', w0Rev: 'ラインを逆向きに通過', w0Once: 'ライン通過が1回だけ', w0Goal: 'ゴールを通っていません', w0Other: '計測できず', w0Course: 'コース未完成',
+    csOk: '完成：計測できます', csNg: '未完成：このままでは計測できません', csTry: (d, r) => `${d} の記録で試すと：${r}`, csTryLaps: (n, t) => `${n}周（ベスト ${t}）`, csTryRuns: (n, t) => `${n}本（${t}）`, csTry0: '計測できません。',
+    csNoTrace: 'このコースを走った記録がまだないため、実際に計測できるかは試せていません。',
+    roundBtn: 'スタートと同じ地点にゴールを置く（1周して戻るコース）', roundDone: 'スタートと同じ地点に、逆向きのゴールを置きました。出ていくときに計測が始まり、戻ってきたときに止まります。', roundNeed: '先にスタートの地点を決めてください。',
+    farStart: d => `今いる場所からスタートラインまで約${d}あります。コースは合っていますか？このまま始めますか？`,
+    recalcOther: '別のコースで計算し直す', recalcPick: 'コースを選ぶ', dragRunLine: (d, t, v) => `${distLabel(d)}  ${t}秒  ${v}${U()}`, spdTime: (s, t, u) => `0-${s}${u}  ${t}秒`, maxSpd: v => `最高 ${v} ${U()}`,
     importBad: 'このアプリで書き出した記録ではありません。', importParse: 'JSONとして読めませんでした。', importDup: '同じ記録がすでにあります。上書きしますか？', importOk: '読み込みました。',
     compareNone: '比較なし', compareWith: x => `比較：${x}`, rdTime: '経過', rdSector: 'セクター', rdSpeed: '速度', rdLat: '緯度', rdLon: '経度', rdHdg: '向き', rdDelta: '比較との差',
     map: '走行ライン', speedGraph: '速度（距離）', deltaGraph: '比較とのタイム差（上が遅い）', gGraph: 'G（距離）', ggTitle: 'G-G図（上：加速、下：ブレーキ、右：右コーナー）',
@@ -637,7 +647,15 @@ const I18N = {
     whyNoCross: 'The recording passes near the start/finish line but never crosses it. Make the line longer or move it.',
     whySlow: n => `${n} crossing(s) slower than ${Math.round(MIN_CROSS_V * 3.6)} km/h were ignored as GPS drift while stopped.`,
     whyShort: (n, m) => `${n} crossing(s) came sooner than the minimum lap (${m} s) and were ignored as double crossings. Check "Minimum lap" in Settings.`,
-    revCross: 'Crossed the start/finish line in the wrong direction (not counted)', dragRunLine: (d, t, v) => `${distLabel(d)}  ${t} s  ${v} ${U()}`, spdTime: (s, t, u) => `0-${s} ${u}  ${t} s`, maxSpd: v => `Top ${v} ${U()}`,
+    revCross: 'Crossed the start/finish line in the wrong direction (not counted)',
+    whySegGoal: (d, w) => `The start was crossed but the finish was not (closest approach about ${d}; the finish line is ${w} m long). Check the finish position and direction.`,
+    whySegRev: n => `The start was only crossed in the wrong direction (${n} time(s)). Its direction may be reversed.`,
+    w0Far: 'Line not crossed', w0Rev: 'Crossed in the wrong direction', w0Once: 'Line crossed only once', w0Goal: 'Finish not crossed', w0Other: 'Not timed', w0Course: 'Track incomplete',
+    csOk: 'Ready: timing will work', csNg: 'Incomplete: timing will not work yet', csTry: (d, r) => `Tried on the ${d} recording: ${r}`, csTryLaps: (n, t) => `${n} lap(s) (best ${t})`, csTryRuns: (n, t) => `${n} run(s) (${t})`, csTry0: 'not timed.',
+    csNoTrace: 'No recording on this track yet, so timing could not be tried.',
+    roundBtn: 'Put the finish at the start point (out-and-back lap)', roundDone: 'A finish facing the other way was placed at the start point. Timing starts when you leave and stops when you come back.', roundNeed: 'Set the start point first.',
+    farStart: d => `The start line is about ${d} from where you are. Is this the right track? Start anyway?`,
+    recalcOther: 'Recalculate with another track', recalcPick: 'Choose a track', dragRunLine: (d, t, v) => `${distLabel(d)}  ${t} s  ${v} ${U()}`, spdTime: (s, t, u) => `0-${s} ${u}  ${t} s`, maxSpd: v => `Top ${v} ${U()}`,
     importBad: 'This is not a recording exported from this app.', importParse: 'Could not read the file as JSON.', importDup: 'This recording already exists. Overwrite?', importOk: 'Imported.',
     compareNone: 'No comparison', compareWith: x => `Compare: ${x}`, rdTime: 'Time', rdSector: 'Sector', rdSpeed: 'Speed', rdLat: 'Latitude', rdLon: 'Longitude', rdHdg: 'Heading', rdDelta: 'Delta',
     map: 'Track map', speedGraph: 'Speed vs distance', deltaGraph: 'Time delta vs comparison (up = slower)', gGraph: 'G vs distance', ggTitle: 'G-G diagram (up: accel, down: brake, right: right turn)',
@@ -798,7 +816,7 @@ function parseLatLon(text){
 }
 
 // ---------- 保存 ----------
-const APP_VERSION = '4.5.3';
+const APP_VERSION = '4.6.0';
 const SCHEMA = 2;
 // github.io では同じユーザーのページ同士が保存領域を共有するので、公開URL以外（テスト用など）は名前を分ける
 const NS = location.pathname.replace(/[^/]*$/, '') || '/';
@@ -1025,18 +1043,27 @@ function lineName(c, i){
   return tx('lnSector', i);
 }
 const nSecOf = c => c.type === 'segment' ? c.lines.length - 1 : c.lines.length;
-// 周回コースで1周もできなかった理由（判定の記録から）。説明の文の配列を返す
-function whyNoLaps(det, minLap){
-  const g = det && det.diag; if (!g || !det.loop || det.laps.length) return [];
-  const out = [];
-  if (g.near > g.w / 2 + 5 && !g.fwd && !g.rev) out.push(tx('whyFar', g.near >= 1000 ? fmtDist(g.near) : Math.round(g.near) + 'm', Math.round(g.w)));
-  else if (!g.fwd && g.rev) out.push(tx('whyRevOnly', g.rev));
-  else if (g.fwd <= 1 && (g.fwd || g.rev)){ out.push(tx('whyOnce')); if (g.rev) out.push(tx('whyOnceRev', g.rev)); }
-  else if (!g.fwd && !g.slow) out.push(tx('whyNoCross'));
+// 1周（1本）も計測できなかった理由（判定の記録から）。code は一覧に出す短い名前、lines は説明の文
+function why0(det, minLap){
+  const g = det && det.diag, out = [], dm = d => d >= 1000 ? fmtDist(d) : Math.round(d) + 'm';
+  if (!g || det.laps.length) return { code: '', lines: out };
+  let code = '';
+  if (!det.loop){
+    if (g.fwd){ code = 'w0Goal'; out.push(tx('whySegGoal', isFinite(g.gNear) ? dm(g.gNear) : '-', Math.round(g.gw))); }
+    else if (g.rev){ code = 'w0Rev'; out.push(tx('whySegRev', g.rev)); }
+    else if (g.near > g.w / 2 + 5){ code = 'w0Far'; out.push(tx('whyFar', dm(g.near), Math.round(g.w))); }
+    else { code = 'w0Far'; out.push(tx('whyNoCross')); }
+  } else if (g.near > g.w / 2 + 5 && !g.fwd && !g.rev){ code = 'w0Far'; out.push(tx('whyFar', dm(g.near), Math.round(g.w))); }
+  else if (!g.fwd && g.rev){ code = 'w0Rev'; out.push(tx('whyRevOnly', g.rev)); }
+  else if (g.fwd <= 1 && (g.fwd || g.rev)){ code = 'w0Once'; out.push(tx('whyOnce')); if (g.rev) out.push(tx('whyOnceRev', g.rev)); }
+  else if (!g.fwd && !g.slow){ code = 'w0Far'; out.push(tx('whyNoCross')); }
   if (g.slow) out.push(tx('whySlow', g.slow));
   if (g.short) out.push(tx('whyShort', g.short, minLap));
-  return out;
+  if (!code && out.length) code = 'w0Other';
+  return { code, lines: out };
 }
+const whyNoLaps = (det, minLap) => why0(det, minLap).lines;
+
 function courseProblem(c){
   if (!c) return tx('probNoCourse');
   if (c.type === 'segment' && c.lines.length < 2) return tx('probSegLines');
@@ -1064,7 +1091,7 @@ class LapDetector {
     this.prev = null; this.lapStart = null; this.lastSplit = 0; this.next = 1;
     this.splits = []; this.warn = false; this.laps = [];
     // 0周のときに理由を説明するための記録：コントロールラインの通過（向き・遅すぎ・短すぎ）と、いちばん近づいた距離
-    this.diag = { fwd: 0, rev: 0, slow: 0, short: 0, near: Infinity, w: course.lines[0].w };
+    this.diag = { fwd: 0, rev: 0, slow: 0, short: 0, near: Infinity, w: course.lines[0].w, gNear: Infinity, gw: course.lines[course.lines.length - 1].w };
   }
   push(p){
     const ev = [], xy = this.proj(p), cur = { t: p.t, x: xy.x, y: xy.y, v: p.v };
@@ -1072,6 +1099,7 @@ class LapDetector {
     this.prev = cur;
     const L0 = this.lines[0], dg = this.diag, dn = Math.hypot(cur.x - L0.c.x, cur.y - L0.c.y);
     if (dn < dg.near) dg.near = dn;
+    if (!this.loop && this.lapStart){ const G = this.lines[this.n - 1], gn = Math.hypot(cur.x - G.c.x, cur.y - G.c.y); if (gn < dg.gNear) dg.gNear = gn; }
     if (!pr || cur.t <= pr.t) return ev;
     const gap = cur.t - pr.t > 3000;
     if (gap && this.lapStart) this.warn = true;
@@ -1082,7 +1110,7 @@ class LapDetector {
       if (!h) continue;
       const v = pr.v + h.t * (cur.v - pr.v);
       if (this.dir[i] && h.sign !== this.dir[i]){
-        if (i === 0 && v >= MIN_CROSS_V){ dg.rev++; ev.push({ type: 'rev' }); }
+        if (i === 0 && v >= MIN_CROSS_V){ dg.rev++; if (this.loop) ev.push({ type: 'rev' }); }
         continue;
       }
       if (v < MIN_CROSS_V){ if (i === 0) dg.slow++; continue; }
@@ -1445,6 +1473,7 @@ function analyze(s){
   }
   for (const l of A.laps) l.excl = isExcl(s, l);
   if (!s.active) s.laps = A.laps.map(stripLap);
+  if (!s.active && s.mode !== 'drag' && s.mode !== 'free') s.why0 = A.laps.length ? '' : A.det ? why0(A.det, 30).code : 'w0Course';
   if (!s.active && A.ride) s.ride = { dist: Math.round(A.ride.dist), mov: A.ride.mov, total: A.ride.total };
   anaCache.set(s.id, A);
   return A;
@@ -1592,7 +1621,7 @@ function onPos(pos){
   const c = pos.coords, now = Date.now(), t = pos.timestamp || now;
   if (t <= live.lastFixT) return;
   if (live.lastFixAt){ live.iv.push((now - live.lastFixAt) / 1000); if (live.iv.length > 5) live.iv.shift(); }
-  live.lastFixAt = now; live.lastFixT = t; live.acc = c.accuracy; live.clockOff = now - t; geo.denied = false;
+  live.lastFixAt = now; live.lastFixT = t; live.acc = c.accuracy; live.pos = { lat: c.latitude, lon: c.longitude }; live.clockOff = now - t; geo.denied = false;
   if (live.err){ live.err = false; if (rec.on) setNote(tx('recNote')); }
   updateGps();
   if (!rec.on || !(c.accuracy <= settings.maxAcc)) return;
@@ -2041,6 +2070,10 @@ async function startRec(){
     else alert(tx('motionNo'));
   }
   if (course){ const p = courseProblem(course); if (p && !confirm(tx('courseIncomplete', p))) return; }
+  if (course && !courseProblem(course) && ptOk(live.pos) && Date.now() - live.lastFixAt < 30000){ // 別の場所のコースを選んだままになっていないか
+    const d = distM(live.pos, course.lines[0].c);
+    if (d > 5000 && !confirm(tx('farStart', fmtDist(d)))) return;
+  }
   if (veh.type === 'car' && !veh.cal && !confirm(tx('calNeededConfirm'))) return;
   if (rec.on) return;
   const s = { id: 's' + Date.now(), startedAt: Date.now(), mode, vehicle: vehSnap(veh), course: course ? clone(course) : null,
@@ -2178,7 +2211,7 @@ function renderRecList(){
   const list = recState.veh ? sessions.filter(s => s.vehicle && s.vehicle.id === recState.veh) : sessions;
   $('#recCards').innerHTML = list.length ? list.map(s => {
     const n = (s.laps || []).length, r = isFree(s) ? s.ride : null;
-    const best = isFree(s) ? (r ? fmtDist(r.dist) : '') : sessBest(s), cnt = isFree(s) ? (r ? fmtDur(r.total) : '') : s.mode === 'drag' ? tx('nRuns', n) : tx('nLaps', n);
+    const best = isFree(s) ? (r ? fmtDist(r.dist) : '') : sessBest(s) || (!n && !s.active && s.why0 ? tx(s.why0) : ''), cnt = isFree(s) ? (r ? fmtDur(r.total) : '') : s.mode === 'drag' ? tx('nRuns', n) : tx('nLaps', n);
     return `<button class="rcard" data-id="${esc(s.id)}">
       <span class="rmode">${esc(tx(modeKey(s.mode)))}</span>
       <span class="rtitle">${esc(sessName(s))}</span>
@@ -2249,6 +2282,7 @@ function renderSess(){
   });
   h += `<p class="note">${esc(tx(free ? 'rideDef' : 'statDef'))}</p>
     ${free ? '' : `<button class="wide" data-sa="recalc">${esc(tx('recalc'))}</button>`}
+    ${drag || free ? '' : `<div class="row" style="margin-top:8px"><select id="recalcSel" aria-label="${esc(tx('recalcPick'))}">${courses.filter(c => !courseProblem(c)).map(c => `<option value="${esc(c.id)}"${s.course && c.id === s.course.id ? ' selected' : ''}>${esc(c.name)}（${esc(tx(c.type === 'segment' ? 'modeSegment' : 'modeCircuit'))}）</option>`).join('')}</select><button data-sa="recalcOther">${esc(tx('recalcOther'))}</button></div>`}
     ${drag || free ? '' : `<button class="wide" style="margin-top:8px" data-sa="auto">${esc(tx('autoFromThis'))}</button>`}
     <div class="row eq"><button data-sa="csv">CSV</button><button data-sa="json">JSON</button><button data-sa="del" class="danger">${esc(tx('del'))}</button></div>
     <button class="wide" style="margin-top:8px" data-sa="gs">${esc(tx('gsSendOne'))}</button><p class="note" id="gsSessNote"></p>`;
@@ -2275,6 +2309,11 @@ $('#sBody').addEventListener('click', async e => {
   const s = sessById(recState.sid); if (!s) return;
   const act = b.dataset.sa;
   if (act === 'recalc') recalcSession(s, true);
+  else if (act === 'recalcOther'){
+    const c = courseById(($('#recalcSel') || {}).value);
+    if (!c){ alert(tx('courseGone')); return; }
+    recalcSession(s, true, c);
+  }
   else if (act === 'auto'){
     const c = courseById(s.course.id);
     if (!c){ alert(tx('courseGone')); return; }
@@ -2306,7 +2345,7 @@ function recalcSession(s, ask, into){
     const c = into || (s.course && courseById(s.course.id));
     if (!c){ alert(tx('courseGone')); return false; }
     if (ask && !confirm(tx('recalcConfirm', c.name))) return false;
-    s.course = clone(c);
+    s.course = clone(c); s.mode = c.type === 'segment' ? 'segment' : 'circuit';
     s.settings = Object.assign({}, s.settings, { minLap: settings.minLap, maxAcc: settings.maxAcc });
   }
   if (v) s.vehicle = vehSnap(v);
@@ -2851,8 +2890,49 @@ function renderCourseTab(){
   $('#cAuto').disabled = $('#cBuild').disabled = !cands.length;
   $('#cTapHint').textContent = tx('tapPlace', lineName(c, cv.sel));
   $('#cLines').innerHTML = c.lines.map((l, i) => lineCardHtml(c, l, i)).join('');
+  $('#cRound').hidden = c.type !== 'segment';
+  renderCourseStatus();
   drawCoursePreview(); drawLineZoom();
 }
+// コースが完成しているか。完成していれば、走った記録で実際に計測できるかも試して見せる
+function courseTry(c, s){
+  const det = new LapDetector(c, Object.assign({}, DEFAULT_OPT, { minLap: settings.minLap, maxAcc: settings.maxAcc }));
+  for (const p of s.points) det.push(p);
+  return det;
+}
+function renderCourseStatus(){
+  const el = $('#cStatus'), c = editCourse(), prob = courseProblem(c);
+  if (prob){ el.innerHTML = `<b class="warnText">${esc(tx('csNg'))}</b><br>${esc(prob)}`; return; }
+  let h = `<b class="good">${esc(tx('csOk'))}</b>`;
+  // 近く（2km以内）を走った記録だけで試す。新しいものから3件まで
+  const P0 = c.lines[0].c, tried = [];
+  for (const s of traceCands(c)){
+    if (tried.length >= 3) break;
+    if (isFree(s) || s.points.length > 20000 || !s.points.some((p, i) => i % 5 === 0 && distM(p, P0) < 2000)) continue;
+    tried.push(s);
+  }
+  if (!tried.length) h += `<br>${esc(tx('csNoTrace'))}`;
+  for (const s of tried){
+    const det = courseTry(c, s), ok = det.laps.filter(l => !l.warn), best = ok.length ? fmtLap(Math.min(...ok.map(l => l.time))) : det.laps.length ? fmtLap(det.laps[0].time) : '';
+    const r = det.laps.length ? tx(c.type === 'segment' ? 'csTryRuns' : 'csTryLaps', det.laps.length, best) : tx('csTry0') + why0(det, settings.minLap).lines.join(' ');
+    h += `<br>${esc(tx('csTry', fmtDate(s.startedAt), r))}`;
+  }
+  el.innerHTML = h;
+}
+// セグメント：スタートと同じ地点に、逆向きのゴールを置く。スタートの向きは、走った記録で最初にそこを通った向きにそろえる
+$('#cRound').addEventListener('click', () => {
+  const c = editCourse(), st = c.lines[0], gl = c.lines[c.lines.length - 1];
+  if (c.type !== 'segment' || !ptOk(st.c)){ alert(tx('roundNeed')); return; }
+  let first = null;
+  for (const s of traceCands(c).filter(x => !x.active && !isFree(x))){
+    const { out } = nearSegs(st.c, [s], 25);
+    if (out.length){ first = out[0].dir; break; }
+  }
+  if (first != null) st.hdg = ((first / D2R) % 360 + 360) % 360;
+  else if (!num(st.hdg)){ alert(tx('probHdg', lineName(c, 0))); return; }
+  gl.c = { lat: st.c.lat, lon: st.c.lon }; gl.hdg = (st.hdg + 180) % 360; gl.w = st.w;
+  saveCourses(); renderCourseTab(); alert(tx('roundDone'));
+});
 function lineSummary(l){
   if (!ptOk(l.c)) return tx('ptUnset');
   return num(l.hdg) ? tx('lineSummary', Math.round(l.hdg), Math.round(l.w)) : `${tx('hdgUnset')}・${Math.round(l.w)}m`;
@@ -3141,6 +3221,7 @@ function refreshLine(){
     card.querySelector('[data-sum]').textContent = lineSummary(l);
     const inp = card.querySelector('[data-f=pt]'); if (inp) inp.value = ptOk(l.c) ? l.c.lat.toFixed(6) + ', ' + l.c.lon.toFixed(6) : '';
   }
+  renderCourseStatus();
   drawCoursePreview(); drawLineZoom();
 }
 function sampleHere(btn){

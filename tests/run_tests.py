@@ -90,6 +90,27 @@ TESTS = {
   const ok = d.laps.length === 0 && d.diag.fwd === 1 && d.diag.rev === 1 && w.length === 2 && w[1] === tx('whyOnceRev', 1) && wf.length === 1 && wf[0].includes('5.0');
   return [ok, { diag: d.diag, w, wf }];
 }""",
+'round_trip_segment': """() => {
+  // 行って戻る道：周回コースをセグメントに変え、「同じ地点にゴール」で計測でき、別コースでの計算し直しもできるか
+  const pts = [];
+  for (let i = 0; i < 40; i++) pts.push({ t: 1.6e12 + i * 1000, ...toLL(2, 200 - 20 * i), v: 20, acc: 4 });
+  for (let i = 0; i < 40; i++) pts.push({ t: 1.6e12 + 40000 + i * 1000, ...toLL(-2, -580 + 20 * i), v: 20, acc: 4 });
+  const circ = migrateCourse({ id: 'rt0', name: 'rt', type: 'circuit', lines: [{ c: toLL(0, 0), hdg: 0, w: 30 }] });
+  const c = migrateCourse({ id: 'rt1', name: 'rt seg', type: 'segment', lines: [{ c: toLL(0, 0), hdg: 0, w: 30 }] });
+  const s = { id: 'rts', startedAt: 1.6e12, mode: 'circuit', vehicle: vehSnap(vehicles[0]), course: clone(circ), settings: { minLap: 30, maxAcc: 20 }, points: pts, laps: [] };
+  sessions.unshift(s); courses.push(circ, c); cv.id = c.id; showTab('v-course'); renderCourseTab();
+  const before = $('#cStatus').textContent, btnShown = !$('#cRound').hidden;
+  $('#cRound').click();
+  const after = $('#cStatus').textContent, hd = c.lines.map(l => Math.round(l.hdg));
+  const why = analyze(s).laps.length === 0 && s.why0 === 'w0Once';
+  recalcSession(s, false, c);
+  const laps = analyze(s).laps.map(l => l.time), mode = s.mode;
+  showTab('v-rec'); recState.sid = s.id; goRec('sess', false); const sel = !!$('#recalcSel') && $('#recalcSel').value === c.id;
+  goRec('list', false); showTab('v-run');
+  sessions = sessions.filter(x => x !== s); courses = courses.filter(x => x !== c && x !== circ); cv.id = courses[0].id; anaCache.delete(s.id);
+  const ok = before.includes(tx('csNg')) && btnShown && after.includes(tx('csOk')) && hd[0] === 180 && hd[1] === 0 && why && laps.length === 1 && Math.abs(laps[0] - 59000) < 1500 && mode === 'segment' && sel;
+  return [ok, { before, after, hd, why, laps, mode, sel }];
+}""",
 'segment': """() => {
   const pts = []; for (let i = 0; i < 50; i++) pts.push({ t: 1.7e12 + i * 1000, ...toLL(0, -100 + 30 * i), v: 30, acc: 4 });
   const c = migrateCourse({ id: 'ts', name: 't', type: 'segment', lines: [{ c: toLL(0, 0), hdg: 0, w: 30 }, { c: toLL(0, 500), hdg: 0, w: 30 }, { c: toLL(0, 1000), hdg: 0, w: 30 }] });
